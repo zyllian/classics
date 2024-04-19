@@ -98,12 +98,11 @@ async fn handle_stream_inner(
 						let mut reader = PacketReader::new(&read_buf);
 
 						if let Some(packet) = ClientPacket::read(packet_buf[0], &mut reader) {
-							// println!("{packet:#?}");
 							match packet {
 								ClientPacket::PlayerIdentification {
 									protocol_version,
 									username,
-									verification_key: _,
+									verification_key,
 									_unused,
 								} => {
 									if protocol_version != 0x07 {
@@ -113,6 +112,12 @@ async fn handle_stream_inner(
 									let zero = f16::from_f32(0.0);
 
 									let mut data = data.write().await;
+
+									if let Some(password) = &data.config.password {
+										if verification_key != *password {
+											return Ok(Some("Incorrect password!".to_string()));
+										}
+									}
 
 									for player in &data.players {
 										if player.username == username {
@@ -144,8 +149,8 @@ async fn handle_stream_inner(
 
 									reply_queue.push_back(ServerPacket::ServerIdentification {
 										protocol_version: 0x07,
-										server_name: "test server".to_string(),
-										server_motd: "whoaaaaaa".to_string(),
+										server_name: data.config.name.clone(),
+										server_motd: data.config.motd.clone(),
 										user_type: PlayerType::Normal,
 									});
 
@@ -156,12 +161,19 @@ async fn handle_stream_inner(
 									let username = player.username.clone();
 									data.players.push(player);
 
+									let (spawn_x, spawn_y, spawn_z) =
+										if let Some(spawn) = &data.config.spawn {
+											(spawn.x, spawn.y, spawn.z)
+										} else {
+											(16, data.level.y_size / 2 + 2, 16)
+										};
+
 									let spawn_packet = ServerPacket::SpawnPlayer {
 										player_id: *own_id,
 										player_name: username.clone(),
-										x: f16::from_f32(16.5),
-										y: f16::from_f32((data.level.y_size / 2 + 2) as f32),
-										z: f16::from_f32(16.5),
+										x: f16::from_f32(spawn_x as f32 + 0.5),
+										y: f16::from_f32(spawn_y as f32),
+										z: f16::from_f32(spawn_z as f32 + 0.5),
 										yaw: 0,
 										pitch: 0,
 									};
