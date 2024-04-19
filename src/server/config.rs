@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::level::generation::LevelGeneration;
@@ -9,8 +11,9 @@ pub struct ServerConfig {
 	pub name: String,
 	/// the server's motd
 	pub motd: String,
-	/// the server's password, if any
-	pub password: Option<String>,
+	/// the server's protection mode
+	#[serde(rename = "password")]
+	pub protection_mode: ServerProtectionMode,
 	/// the level's size
 	pub level_size: Option<ConfigCoordinates>,
 	/// the level's spawn point
@@ -24,7 +27,7 @@ impl Default for ServerConfig {
 		Self {
 			name: "classic server wowie".to_string(),
 			motd: "here's the default server motd".to_string(),
-			password: None,
+			protection_mode: ServerProtectionMode::None,
 			level_size: None,
 			spawn: None,
 			generation: LevelGeneration::Empty,
@@ -41,4 +44,16 @@ pub struct ConfigCoordinates {
 	pub y: usize,
 	/// the Z coordinate
 	pub z: usize,
+}
+
+/// enum for the different kinds of server protection
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ServerProtectionMode {
+	/// the server is unprotected and anyone can join with any username
+	None,
+	/// the server requires a password to join, but you can use any username if you know the password
+	Password(String),
+	/// the server requires a password to join and the password is checked against each username
+	PasswordsByUser(BTreeMap<String, String>),
 }

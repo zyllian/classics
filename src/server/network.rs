@@ -14,6 +14,7 @@ use crate::{
 		client::ClientPacket, server::ServerPacket, PacketReader, PacketWriter, ARRAY_LENGTH,
 	},
 	player::{Player, PlayerType},
+	server::config::ServerProtectionMode,
 };
 
 use super::ServerData;
@@ -113,9 +114,21 @@ async fn handle_stream_inner(
 
 									let mut data = data.write().await;
 
-									if let Some(password) = &data.config.password {
-										if verification_key != *password {
-											return Ok(Some("Incorrect password!".to_string()));
+									match &data.config.protection_mode {
+										ServerProtectionMode::None => {}
+										ServerProtectionMode::Password(password) => {
+											if verification_key != *password {
+												return Ok(Some("Incorrect password!".to_string()));
+											}
+										}
+										ServerProtectionMode::PasswordsByUser(passwords) => {
+											if !passwords
+												.get(&username)
+												.map(|password| verification_key == *password)
+												.unwrap_or_default()
+											{
+												return Ok(Some("Incorrect password!".to_string()));
+											}
 										}
 									}
 
