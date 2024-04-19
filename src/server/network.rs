@@ -229,7 +229,8 @@ async fn handle_stream_inner(
 									let block =
 										data.level.get_block(x as usize, y as usize, z as usize);
 									// check if bedrock
-									if block == 0x07
+									// TODO: genericize this
+									if (block == 0x07 || block_type == 0x07)
 										&& data
 											.players
 											.iter()
@@ -238,6 +239,12 @@ async fn handle_stream_inner(
 											})
 											.unwrap_or_default() != PlayerType::Operator
 									{
+										reply_queue.push_back(ServerPacket::SetBlock {
+											x,
+											y,
+											z,
+											block_type: block,
+										});
 										continue;
 									}
 									let packet = ServerPacket::SetBlock {
