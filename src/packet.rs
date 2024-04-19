@@ -62,27 +62,27 @@ impl<'p> PacketReader<'p> {
 		Some(String::from_iter(chars).trim().to_string())
 	}
 
-	/// gets the next array of the given length in the packet, if any
-	fn next_array_of_length(&mut self, len: usize) -> Option<Vec<u8>> {
-		let mut bytes: Vec<u8> = Vec::new();
-		let mut append = true;
-		for _ in 0..len {
-			let b = self.next_u8()?;
-			if append {
-				if b == 0 {
-					append = false;
-				} else {
-					bytes.push(b);
-				}
-			}
-		}
-		Some(bytes)
-	}
+	// /// gets the next array of the given length in the packet, if any
+	// fn next_array_of_length(&mut self, len: usize) -> Option<Vec<u8>> {
+	// 	let mut bytes: Vec<u8> = Vec::new();
+	// 	let mut append = true;
+	// 	for _ in 0..len {
+	// 		let b = self.next_u8()?;
+	// 		if append {
+	// 			if b == 0 {
+	// 				append = false;
+	// 			} else {
+	// 				bytes.push(b);
+	// 			}
+	// 		}
+	// 	}
+	// 	Some(bytes)
+	// }
 
-	/// gets the next array of default size in the packet, if any
-	fn next_array(&mut self) -> Option<Vec<u8>> {
-		self.next_array_of_length(ARRAY_LENGTH)
-	}
+	// /// gets the next array of default size in the packet, if any
+	// fn next_array(&mut self) -> Option<Vec<u8>> {
+	// 	self.next_array_of_length(ARRAY_LENGTH)
+	// }
 }
 
 /// helper for writing a packet
