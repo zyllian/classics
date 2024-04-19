@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::level::generation::LevelGeneration;
+
 /// configuration for the server
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -13,6 +15,8 @@ pub struct ServerConfig {
 	pub level_size: Option<ConfigCoordinates>,
 	/// the level's spawn point
 	pub spawn: Option<ConfigCoordinates>,
+	/// the method to generate the server's level with
+	pub generation: LevelGeneration,
 }
 
 impl Default for ServerConfig {
@@ -23,6 +27,7 @@ impl Default for ServerConfig {
 			password: None,
 			level_size: None,
 			spawn: None,
+			generation: LevelGeneration::Empty,
 		}
 	}
 }

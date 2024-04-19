@@ -3,8 +3,6 @@ mod network;
 
 use std::sync::Arc;
 
-// use parking_lot::RwLock;
-use rand::Rng;
 use tokio::{net::TcpListener, sync::RwLock};
 
 use crate::{level::Level, player::Player};
@@ -50,13 +48,7 @@ impl Server {
 			)
 		};
 		let mut level = Level::new(level_x, level_y, level_z);
-		for x in 0..level.x_size {
-			for y in 0..(level.y_size / 2) {
-				for z in 0..level.z_size {
-					level.set_block(x, y, z, rng.gen_range(0..50));
-				}
-			}
-		}
+		config.generation.generate(&mut level, &mut rng);
 		println!("done!");
 
 		Self::new_with_level(config, level).await

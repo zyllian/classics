@@ -1,3 +1,5 @@
+pub mod generation;
+
 /// a classic level
 #[derive(Debug, Clone)]
 pub struct Level {
