@@ -1,5 +1,7 @@
 use std::{collections::BTreeMap, sync::LazyLock};
 
+use internment::Intern;
+
 use crate::player::PlayerType;
 
 /// information about all blocks implemented
@@ -95,7 +97,7 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 });
 
 /// map of block string ids to their byte ids
-pub static BLOCK_STRING_ID_MAP: LazyLock<BTreeMap<&'static str, u8>> = LazyLock::new(|| {
+pub static BLOCK_STRING_ID_MAP: LazyLock<BTreeMap<Intern<String>, u8>> = LazyLock::new(|| {
 	BLOCK_INFO
 		.iter()
 		.map(|(id, info)| (info.str_id, *id))
@@ -106,7 +108,7 @@ pub static BLOCK_STRING_ID_MAP: LazyLock<BTreeMap<&'static str, u8>> = LazyLock:
 #[derive(Debug)]
 pub struct BlockInfo {
 	/// the block's string id
-	pub str_id: &'static str,
+	pub str_id: Intern<String>,
 	/// the type of block
 	pub block_type: BlockType,
 	/// permissions needed to place this block
@@ -117,9 +119,9 @@ pub struct BlockInfo {
 
 impl BlockInfo {
 	/// creates a new block info
-	pub const fn new(str_id: &'static str) -> Self {
+	pub fn new(str_id: &'static str) -> Self {
 		Self {
-			str_id,
+			str_id: Intern::new(str_id.to_owned()),
 			block_type: BlockType::Solid,
 			place_permissions: PlayerType::Normal,
 			break_permissions: PlayerType::Normal,
