@@ -226,6 +226,17 @@ async fn handle_stream_inner(
 								} => {
 									let block_type = if mode == 0x00 { 0 } else { block_type };
 									let mut data = data.write().await;
+
+									// kick players if they attempt to place a block out of bounds
+									if x.clamp(0, data.level.x_size as i16 - 1) != x
+										|| y.clamp(0, data.level.y_size as i16 - 1) != y
+										|| z.clamp(0, data.level.z_size as i16 - 1) != z
+									{
+										return Ok(Some(
+											"Attempt to place block out of bounds".to_string(),
+										));
+									}
+
 									let new_block_info = BLOCK_INFO.get(&block_type);
 									let mut cancel = new_block_info.is_none();
 									let block =
