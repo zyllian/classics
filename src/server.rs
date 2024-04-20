@@ -56,7 +56,7 @@ impl Server {
 
 	/// creates a new server with the given level
 	pub async fn new_with_level(config: ServerConfig, level: Level) -> std::io::Result<Self> {
-		let listener = TcpListener::bind("127.0.0.1:25565").await?;
+		let listener = TcpListener::bind("0.0.0.0:25565").await?;
 
 		Ok(Self {
 			data: Arc::new(RwLock::new(ServerData {
