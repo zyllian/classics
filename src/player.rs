@@ -31,7 +31,7 @@ pub struct Player {
 }
 
 /// enum describing types of players
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum PlayerType {
 	/// a normal player

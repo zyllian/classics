@@ -1,3 +1,4 @@
+pub mod block;
 pub mod generation;
 
 /// a classic level

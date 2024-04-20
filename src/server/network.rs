@@ -9,7 +9,7 @@ use tokio::{
 };
 
 use crate::{
-	level::Level,
+	level::{block::BLOCK_INFO, Level},
 	packet::{
 		client::ClientPacket, server::ServerPacket, PacketReader, PacketWriter, ARRAY_LENGTH,
 	},
@@ -226,19 +226,41 @@ async fn handle_stream_inner(
 								} => {
 									let block_type = if mode == 0x00 { 0 } else { block_type };
 									let mut data = data.write().await;
+									let new_block_info = BLOCK_INFO.get(&block_type);
+									let mut cancel = new_block_info.is_none();
 									let block =
 										data.level.get_block(x as usize, y as usize, z as usize);
-									// check if bedrock
-									// TODO: genericize this
-									if (block == 0x07 || block_type == 0x07)
-										&& data
+									let block_info = BLOCK_INFO
+										.get(&block)
+										.expect("missing block information for block!");
+
+									// check if player has ability to place/break these blocks
+									if let Some(new_block_info) = new_block_info {
+										let player_type = data
 											.players
 											.iter()
 											.find_map(|p| {
 												(p.id == *own_id).then_some(p.player_type)
 											})
-											.unwrap_or_default() != PlayerType::Operator
-									{
+											.unwrap_or_default();
+										if player_type < new_block_info.place_permissions {
+											cancel = true;
+											reply_queue.push_back(ServerPacket::Message {
+												player_id: -1,
+												message: "Not allowed to place this block."
+													.to_string(),
+											});
+										} else if player_type < block_info.break_permissions {
+											cancel = true;
+											reply_queue.push_back(ServerPacket::Message {
+												player_id: -1,
+												message: "Not allowed to break this block."
+													.to_string(),
+											});
+										}
+									}
+
+									if cancel {
 										reply_queue.push_back(ServerPacket::SetBlock {
 											x,
 											y,

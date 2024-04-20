@@ -1,3 +1,5 @@
+#![feature(lazy_cell)]
+
 use std::path::PathBuf;
 
 use server::{config::ServerConfig, Server};
