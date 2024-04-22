@@ -107,14 +107,10 @@ fn tick(data: &mut ServerData, tick: usize) {
 	let mut packets = level.apply_updates();
 
 	let awaiting_update = std::mem::take(&mut level.awaiting_update);
-	if !awaiting_update.is_empty() {
-		println!("hm");
-	}
 	for index in awaiting_update {
 		let (x, y, z) = level.coordinates(index);
 		let block_id = level.get_block(x, y, z);
 		let block = BLOCK_INFO.get(&block_id).expect("should never fail");
-		println!("{block:#?}");
 		match &block.block_type {
 			BlockType::FluidFlowing {
 				stationary,
@@ -127,8 +123,10 @@ fn tick(data: &mut ServerData, tick: usize) {
 					};
 					level.updates.push(update);
 					for (nx, ny, nz) in neighbors_minus_up(level, x, y, z) {
-						let block_at = level.get_block(nx, ny, nz);
-						let update = if block_at == 0 {
+						let block_at = BLOCK_INFO
+							.get(&level.get_block(nx, ny, nz))
+							.expect("missing block");
+						let update = if matches!(block_at.block_type, BlockType::NonSolid) {
 							level.awaiting_update.insert(level.index(nx, ny, nz));
 							BlockUpdate {
 								index: level.index(nx, ny, nz),
@@ -146,7 +144,13 @@ fn tick(data: &mut ServerData, tick: usize) {
 			BlockType::FluidStationary { moving } => {
 				let mut needs_update = false;
 				for (nx, ny, nz) in neighbors_minus_up(level, x, y, z) {
-					if level.get_block(nx, ny, nz) == 0 {
+					if matches!(
+						BLOCK_INFO
+							.get(&level.get_block(nx, ny, nz))
+							.expect("missing block")
+							.block_type,
+						BlockType::NonSolid
+					) {
 						needs_update = true;
 						break;
 					}
