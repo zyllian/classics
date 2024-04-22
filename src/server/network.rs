@@ -10,7 +10,7 @@ use tokio::{
 };
 
 use crate::{
-	level::{block::BLOCK_INFO, Level},
+	level::{block::BLOCK_INFO, BlockUpdate, Level},
 	packet::{client::ClientPacket, server::ServerPacket, PacketWriter, ARRAY_LENGTH},
 	player::{Player, PlayerType},
 	server::config::ServerProtectionMode,
@@ -233,7 +233,18 @@ async fn handle_stream_inner(
 									}
 
 									let new_block_info = BLOCK_INFO.get(&block_type);
-									let mut cancel = new_block_info.is_none();
+									if new_block_info.is_none() {
+										reply_queue.push_back(ServerPacket::Message {
+											player_id: -1,
+											message: format!(
+												"Unknown block ID: 0x{:0x}",
+												block_type
+											),
+										});
+										continue;
+									}
+									let new_block_info = new_block_info.expect("will never fail");
+									let mut cancel = false;
 									let block =
 										data.level.get_block(x as usize, y as usize, z as usize);
 									let block_info = BLOCK_INFO
@@ -241,29 +252,23 @@ async fn handle_stream_inner(
 										.expect("missing block information for block!");
 
 									// check if player has ability to place/break these blocks
-									if let Some(new_block_info) = new_block_info {
-										let player_type = data
-											.players
-											.iter()
-											.find_map(|p| {
-												(p.id == *own_id).then_some(p.player_type)
-											})
-											.unwrap_or_default();
-										if player_type < new_block_info.place_permissions {
-											cancel = true;
-											reply_queue.push_back(ServerPacket::Message {
-												player_id: -1,
-												message: "Not allowed to place this block."
-													.to_string(),
-											});
-										} else if player_type < block_info.break_permissions {
-											cancel = true;
-											reply_queue.push_back(ServerPacket::Message {
-												player_id: -1,
-												message: "Not allowed to break this block."
-													.to_string(),
-											});
-										}
+									let player_type = data
+										.players
+										.iter()
+										.find_map(|p| (p.id == *own_id).then_some(p.player_type))
+										.unwrap_or_default();
+									if player_type < new_block_info.place_permissions {
+										cancel = true;
+										reply_queue.push_back(ServerPacket::Message {
+											player_id: -1,
+											message: "Not allowed to place this block.".to_string(),
+										});
+									} else if player_type < block_info.break_permissions {
+										cancel = true;
+										reply_queue.push_back(ServerPacket::Message {
+											player_id: -1,
+											message: "Not allowed to break this block.".to_string(),
+										});
 									}
 
 									if cancel {
@@ -275,16 +280,14 @@ async fn handle_stream_inner(
 										});
 										continue;
 									}
-									let packet = ServerPacket::SetBlock {
-										x,
-										y,
-										z,
-										block_type,
-									};
-									data.level
-										.set_block(x as usize, y as usize, z as usize, block_type);
-									for player in &mut data.players {
-										player.packets_to_send.push(packet.clone());
+									let (x, y, z) = (x as usize, y as usize, z as usize);
+									let index = data.level.index(x, y, z);
+									data.level.updates.push(BlockUpdate {
+										index,
+										block: block_type,
+									});
+									if new_block_info.block_type.needs_update_on_place() {
+										data.level.awaiting_update.insert(index);
 									}
 								}
 								ClientPacket::PositionOrientation {

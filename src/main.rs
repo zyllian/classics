@@ -11,6 +11,7 @@ mod level;
 mod packet;
 mod player;
 mod server;
+mod util;
 
 const CONFIG_FILE: &str = "./server-config.json";
 

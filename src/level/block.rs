@@ -24,7 +24,10 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 		(
 			0x08,
 			BlockInfo::new("water_flowing")
-				.block_type(BlockType::FluidFlowing { stationary: 0x09 })
+				.block_type(BlockType::FluidFlowing {
+					stationary: 0x09,
+					ticks_to_spread: 1,
+				})
 				.perm(PlayerType::Operator, PlayerType::Normal),
 		),
 		(
@@ -36,7 +39,10 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 		(
 			0x0a,
 			BlockInfo::new("lava_flowing")
-				.block_type(BlockType::FluidFlowing { stationary: 0x0b })
+				.block_type(BlockType::FluidFlowing {
+					stationary: 0x0b,
+					ticks_to_spread: 5,
+				})
 				.perm(PlayerType::Operator, PlayerType::Normal),
 		),
 		(
@@ -152,7 +158,30 @@ pub enum BlockType {
 	/// a slab
 	Slab,
 	/// fluid which is actively flowing
-	FluidFlowing { stationary: u8 },
+	FluidFlowing {
+		stationary: u8,
+		ticks_to_spread: usize,
+	},
 	/// fluid which is stationary
 	FluidStationary { moving: u8 },
+}
+
+impl BlockType {
+	/// gets whether this block type needs an update after being placed
+	#[allow(clippy::match_like_matches_macro)]
+	pub fn needs_update_on_place(&self) -> bool {
+		match self {
+			BlockType::FluidFlowing { .. } => true,
+			_ => false,
+		}
+	}
+
+	/// gets whether this block type needs an update when one of it's direct neighbors changes
+	#[allow(clippy::match_like_matches_macro)]
+	pub fn needs_update_when_neighbor_changed(&self) -> bool {
+		match self {
+			BlockType::FluidStationary { .. } => true,
+			_ => false,
+		}
+	}
 }
