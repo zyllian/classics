@@ -9,8 +9,6 @@ use crate::{level::Level, player::Player};
 
 use self::config::ServerConfig;
 
-const DEFAULT_SERVER_SIZE: usize = 128;
-
 /// the server
 #[derive(Debug)]
 pub struct Server {
@@ -38,16 +36,11 @@ impl Server {
 	pub async fn new(config: ServerConfig) -> std::io::Result<Self> {
 		println!("generating level");
 		let mut rng = rand::thread_rng();
-		let (level_x, level_y, level_z) = if let Some(size) = &config.level_size {
-			(size.x, size.y, size.z)
-		} else {
-			(
-				DEFAULT_SERVER_SIZE,
-				DEFAULT_SERVER_SIZE,
-				DEFAULT_SERVER_SIZE,
-			)
-		};
-		let mut level = Level::new(level_x, level_y, level_z);
+		let mut level = Level::new(
+			config.level_size.x,
+			config.level_size.y,
+			config.level_size.z,
+		);
 		config.generation.generate(&mut level, &mut rng);
 		println!("done!");
 

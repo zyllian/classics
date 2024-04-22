@@ -4,11 +4,12 @@ name = "classics"
 version = "0.1.0"
 
 [dependencies]
-bytes = "1.6.0"
+bytes = "1"
 flate2 = "1"
 half = "2"
-internment = { version = "0.8", features = ["serde"] }
-parking_lot = "0.12.1"
+internment = {version = "0.8", features = ["serde"]}
+optional_struct = "0.4"
+parking_lot = "0.12"
 rand = "0.8"
 safer-bytes = "0.2"
 serde = {version = "1", features = ["derive"]}

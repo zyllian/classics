@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 
+use optional_struct::optional_struct;
 use serde::{Deserialize, Serialize};
 
 use crate::level::generation::LevelGeneration;
 
 /// configuration for the server
+#[optional_struct]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerConfig {
 	/// the server's name
@@ -15,11 +17,18 @@ pub struct ServerConfig {
 	#[serde(rename = "password")]
 	pub protection_mode: ServerProtectionMode,
 	/// the level's size
-	pub level_size: Option<ConfigCoordinates>,
+	pub level_size: ConfigCoordinates,
 	/// the level's spawn point
 	pub spawn: Option<ConfigCoordinates>,
 	/// the method to generate the server's level with
 	pub generation: LevelGeneration,
+}
+
+impl OptionalServerConfig {
+	/// builds the server config filling with default options
+	pub fn build_default(self) -> ServerConfig {
+		self.build(Default::default())
+	}
 }
 
 impl Default for ServerConfig {
@@ -28,15 +37,19 @@ impl Default for ServerConfig {
 			name: "classic server wowie".to_string(),
 			motd: "here's the default server motd".to_string(),
 			protection_mode: ServerProtectionMode::None,
-			level_size: None,
+			level_size: ConfigCoordinates {
+				x: 256,
+				y: 64,
+				z: 256,
+			},
 			spawn: None,
-			generation: LevelGeneration::Empty,
+			generation: LevelGeneration::Flat(crate::level::generation::FlatPreset::StoneAndGrass),
 		}
 	}
 }
 
 /// coordinates as stored in configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfigCoordinates {
 	/// the X coordinate
 	pub x: usize,
@@ -47,7 +60,7 @@ pub struct ConfigCoordinates {
 }
 
 /// enum for the different kinds of server protection
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ServerProtectionMode {
 	/// the server is unprotected and anyone can join with any username

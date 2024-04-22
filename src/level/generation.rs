@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{block::BLOCK_STRING_ID_MAP, Level};
 
 /// enum for different kinds of level generation
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum LevelGeneration {
 	/// an empty level
@@ -17,7 +17,7 @@ pub enum LevelGeneration {
 }
 
 /// enum for level presents
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "flat_type")]
 pub enum FlatPreset {
 	/// the level is mostly stone, then dirt, then a layer of grass on the top
@@ -27,7 +27,7 @@ pub enum FlatPreset {
 }
 
 /// description of a flat world's layer
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlatLayer {
 	/// the block for the layer
 	pub block: String,

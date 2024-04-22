@@ -2,7 +2,10 @@
 
 use std::path::PathBuf;
 
-use server::{config::ServerConfig, Server};
+use server::{
+	config::{OptionalServerConfig, ServerConfig},
+	Server,
+};
 
 mod level;
 mod packet;
@@ -15,16 +18,16 @@ const CONFIG_FILE: &str = "./server-config.json";
 async fn main() -> std::io::Result<()> {
 	let config_path = PathBuf::from(CONFIG_FILE);
 	let config = if config_path.exists() {
-		serde_json::from_str(&std::fs::read_to_string(config_path)?)
+		serde_json::from_str::<OptionalServerConfig>(&std::fs::read_to_string(&config_path)?)
 			.expect("failed to deserialize config")
+			.build_default()
 	} else {
-		let config = ServerConfig::default();
-		std::fs::write(
-			config_path,
-			serde_json::to_string_pretty(&config).expect("failed to serialize default config"),
-		)?;
-		config
+		ServerConfig::default()
 	};
+	std::fs::write(
+		config_path,
+		serde_json::to_string_pretty(&config).expect("failed to serialize default config"),
+	)?;
 
 	println!("starting server with config: {config:#?}");
 
