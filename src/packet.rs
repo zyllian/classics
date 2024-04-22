@@ -1,4 +1,5 @@
 use half::f16;
+use safer_bytes::{error::Truncated, SafeBuf};
 
 pub mod client;
 pub mod server;
@@ -10,79 +11,30 @@ pub const ARRAY_LENGTH: usize = 1024;
 /// units in an f16 unit
 pub const F16_UNITS: f32 = 32.0;
 
-/// helper for reading packets
-#[derive(Debug)]
-pub struct PacketReader<'p> {
-	raw_packet: &'p [u8],
-	cursor: usize,
+/// trait extending the `SafeBuf` type
+pub trait SafeBufExtension: SafeBuf {
+	/// tries to get the next f16 in the buffer
+	fn try_get_f16(&mut self) -> Result<f16, Truncated>;
+	/// tries to get the next string in the buffer
+	fn try_get_string(&mut self) -> Result<String, Truncated>;
 }
 
-impl<'p> PacketReader<'p> {
-	/// creates a new packet reader from the given packet data
-	pub fn new(raw_packet: &'p [u8]) -> Self {
-		Self {
-			raw_packet,
-			cursor: 0,
-		}
+impl<T> SafeBufExtension for T
+where
+	T: SafeBuf,
+{
+	fn try_get_f16(&mut self) -> Result<f16, Truncated> {
+		self.try_get_i16()
+			.map(|v| f16::from_f32(v as f32 / F16_UNITS))
 	}
 
-	/// gets the next u8 in the packet, if any
-	fn next_u8(&mut self) -> Option<u8> {
-		let r = self.raw_packet.get(self.cursor).copied();
-		self.cursor = self.cursor.checked_add(1).unwrap_or(self.cursor);
-		r
-	}
-
-	/// gets the next i8 in the packet, if any
-	fn next_i8(&mut self) -> Option<i8> {
-		self.next_u8().map(|b| b as i8)
-	}
-
-	/// gets the next u16 in the packet, if any
-	fn next_u16(&mut self) -> Option<u16> {
-		Some(u16::from_be_bytes([self.next_u8()?, self.next_u8()?]))
-	}
-
-	/// gets the next i16 in the packet, if any
-	fn next_i16(&mut self) -> Option<i16> {
-		self.next_u16().map(|s| s as i16)
-	}
-
-	/// gets the next f16 in the packet, if any
-	fn next_f16(&mut self) -> Option<f16> {
-		self.next_i16().map(|v| f16::from_f32(v as f32 / F16_UNITS))
-	}
-
-	/// gets the next string in the packet, if any
-	fn next_string(&mut self) -> Option<String> {
+	fn try_get_string(&mut self) -> Result<String, Truncated> {
 		let mut chars: Vec<char> = Vec::new();
 		for _ in 0..STRING_LENGTH {
-			chars.push(self.next_u8()? as char);
+			chars.push(self.try_get_u8()? as char);
 		}
-		Some(String::from_iter(chars).trim().to_string())
+		Ok(String::from_iter(chars).trim().to_string())
 	}
-
-	// /// gets the next array of the given length in the packet, if any
-	// fn next_array_of_length(&mut self, len: usize) -> Option<Vec<u8>> {
-	// 	let mut bytes: Vec<u8> = Vec::new();
-	// 	let mut append = true;
-	// 	for _ in 0..len {
-	// 		let b = self.next_u8()?;
-	// 		if append {
-	// 			if b == 0 {
-	// 				append = false;
-	// 			} else {
-	// 				bytes.push(b);
-	// 			}
-	// 		}
-	// 	}
-	// 	Some(bytes)
-	// }
-
-	// /// gets the next array of default size in the packet, if any
-	// fn next_array(&mut self) -> Option<Vec<u8>> {
-	// 	self.next_array_of_length(ARRAY_LENGTH)
-	// }
 }
 
 /// helper for writing a packet

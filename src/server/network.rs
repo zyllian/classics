@@ -1,18 +1,17 @@
 use std::{collections::VecDeque, io::Write, net::SocketAddr, sync::Arc};
 
+use bytes::BytesMut;
 use flate2::{write::GzEncoder, Compression};
 use half::f16;
 use tokio::{
-	io::{AsyncWriteExt, Interest},
+	io::{AsyncReadExt, AsyncWriteExt, Interest},
 	net::TcpStream,
 	sync::RwLock,
 };
 
 use crate::{
 	level::{block::BLOCK_INFO, Level},
-	packet::{
-		client::ClientPacket, server::ServerPacket, PacketReader, PacketWriter, ARRAY_LENGTH,
-	},
+	packet::{client::ClientPacket, server::ServerPacket, PacketWriter, ARRAY_LENGTH},
 	player::{Player, PlayerType},
 	server::config::ServerProtectionMode,
 };
@@ -69,11 +68,9 @@ async fn handle_stream_inner(
 	data: Arc<RwLock<ServerData>>,
 	own_id: &mut i8,
 ) -> std::io::Result<Option<String>> {
-	const BUF_SIZE: usize = 130;
-
 	let mut reply_queue: VecDeque<ServerPacket> = VecDeque::new();
-	let mut packet_buf = [0u8];
 	let mut read_buf;
+	let mut id_buf;
 
 	loop {
 		let ready = stream
@@ -86,20 +83,18 @@ async fn handle_stream_inner(
 		}
 
 		if ready.is_readable() {
-			match stream.try_read(&mut packet_buf) {
+			id_buf = [0u8];
+			match stream.try_read(&mut id_buf) {
 				Ok(n) => {
 					if n == 1 {
-						read_buf = [0; BUF_SIZE];
-						match stream.try_read(&mut read_buf) {
-							Ok(_n) => {}
-							Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
-							Err(e) => return Err(e),
-						}
+						if let Some(size) = ClientPacket::get_size_from_id(id_buf[0]) {
+							read_buf = BytesMut::zeroed(size);
 
-						let mut reader = PacketReader::new(&read_buf);
+							stream.read_exact(&mut read_buf).await?;
 
-						if let Some(packet) = ClientPacket::read(packet_buf[0], &mut reader) {
-							match packet {
+							match ClientPacket::read(id_buf[0], &mut read_buf)
+								.expect("should never fail: id already checked")
+							{
 								ClientPacket::PlayerIdentification {
 									protocol_version,
 									username,
@@ -331,7 +326,7 @@ async fn handle_stream_inner(
 								}
 							}
 						} else {
-							println!("unknown packet id: {:0x}", packet_buf[0]);
+							println!("unknown packet id: {}", id_buf[0]);
 						}
 					}
 				}

@@ -1,5 +1,7 @@
 use half::f16;
 
+use super::{SafeBufExtension, STRING_LENGTH};
+
 /// enum for a packet which can be received by the client
 #[derive(Debug, Clone)]
 pub enum ClientPacket {
@@ -53,35 +55,52 @@ impl ClientPacket {
 	// 	}
 	// }
 
+	/// gets the size of the packet from the given id (minus one byte for the id)
+	pub const fn get_size_from_id(id: u8) -> Option<usize> {
+		Some(match id {
+			0x00 => 1 + STRING_LENGTH + STRING_LENGTH + 1,
+			0x05 => 2 + 2 + 2 + 1 + 1,
+			0x08 => 1 + 2 + 2 + 2 + 1 + 1,
+			0x0d => 1 + STRING_LENGTH,
+			_ => return None,
+		})
+	}
+
 	/// reads the packet
-	pub fn read(id: u8, packet: &mut super::PacketReader) -> Option<Self> {
+	pub fn read<B>(id: u8, buf: &mut B) -> Option<Self>
+	where
+		B: SafeBufExtension,
+	{
 		Some(match id {
 			0x00 => Self::PlayerIdentification {
-				protocol_version: packet.next_u8()?,
-				username: packet.next_string()?,
-				verification_key: packet.next_string()?,
-				_unused: packet.next_u8()?,
+				protocol_version: buf.try_get_u8().ok()?,
+				username: buf.try_get_string().ok()?,
+				verification_key: buf.try_get_string().ok()?,
+				_unused: buf.try_get_u8().ok()?,
 			},
 			0x05 => Self::SetBlock {
-				x: packet.next_i16()?,
-				y: packet.next_i16()?,
-				z: packet.next_i16()?,
-				mode: packet.next_u8()?,
-				block_type: packet.next_u8()?,
+				x: buf.try_get_i16().ok()?,
+				y: buf.try_get_i16().ok()?,
+				z: buf.try_get_i16().ok()?,
+				mode: buf.try_get_u8().ok()?,
+				block_type: buf.try_get_u8().ok()?,
 			},
 			0x08 => Self::PositionOrientation {
-				_player_id: packet.next_i8()?,
-				x: packet.next_f16()?,
-				y: packet.next_f16()?,
-				z: packet.next_f16()?,
-				yaw: packet.next_u8()?,
-				pitch: packet.next_u8()?,
+				_player_id: buf.try_get_i8().ok()?,
+				x: buf.try_get_f16().ok()?,
+				y: buf.try_get_f16().ok()?,
+				z: buf.try_get_f16().ok()?,
+				yaw: buf.try_get_u8().ok()?,
+				pitch: buf.try_get_u8().ok()?,
 			},
 			0x0d => Self::Message {
-				player_id: packet.next_i8()?,
-				message: packet.next_string()?,
+				player_id: buf.try_get_i8().ok()?,
+				message: buf.try_get_string().ok()?,
 			},
-			_ => return None,
+			id => {
+				println!("unknown packet id: {id:0x}");
+				return None;
+			}
 		})
 	}
 
