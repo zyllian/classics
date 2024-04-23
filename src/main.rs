@@ -7,6 +7,7 @@ use server::{
 	Server,
 };
 
+mod command;
 mod level;
 mod packet;
 mod player;

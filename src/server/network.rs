@@ -10,6 +10,7 @@ use tokio::{
 };
 
 use crate::{
+	command::Command,
 	level::{block::BLOCK_INFO, BlockUpdate, Level},
 	packet::{client::ClientPacket, server::ServerPacket, PacketWriter, ARRAY_LENGTH},
 	player::{Player, PlayerType},
@@ -71,6 +72,24 @@ async fn handle_stream_inner(
 	let mut reply_queue: VecDeque<ServerPacket> = VecDeque::new();
 	let mut read_buf;
 	let mut id_buf;
+
+	macro_rules! msg {
+		($message:expr) => {
+			reply_queue.push_back(ServerPacket::Message {
+				player_id: -1,
+				message: $message,
+			});
+		};
+	}
+
+	macro_rules! spread_packet {
+		($data:expr, $packet:expr) => {
+			let packet = $packet;
+			for player in &mut $data.players {
+				player.packets_to_send.push(packet.clone());
+			}
+		};
+	}
 
 	loop {
 		let ready = stream
@@ -211,10 +230,7 @@ async fn handle_stream_inner(
 											player.packets_to_send.push(message_packet.clone());
 										}
 									}
-									reply_queue.push_back(ServerPacket::Message {
-										player_id: *own_id,
-										message: "Welcome to the server! Enjoyyyyyy".to_string(),
-									});
+									msg!("&dWelcome to the server! Enjoyyyyyy".to_string());
 									reply_queue.push_back(ServerPacket::UpdateUserType {
 										user_type: PlayerType::Operator,
 									});
@@ -241,13 +257,7 @@ async fn handle_stream_inner(
 
 									let new_block_info = BLOCK_INFO.get(&block_type);
 									if new_block_info.is_none() {
-										reply_queue.push_back(ServerPacket::Message {
-											player_id: -1,
-											message: format!(
-												"Unknown block ID: 0x{:0x}",
-												block_type
-											),
-										});
+										msg!(format!("&cUnknown block ID: 0x{:0x}", block_type));
 										continue;
 									}
 									let new_block_info = new_block_info.expect("will never fail");
@@ -266,16 +276,10 @@ async fn handle_stream_inner(
 										.unwrap_or_default();
 									if player_type < new_block_info.place_permissions {
 										cancel = true;
-										reply_queue.push_back(ServerPacket::Message {
-											player_id: -1,
-											message: "Not allowed to place this block.".to_string(),
-										});
+										msg!("&cNot allow to place this block.".to_string());
 									} else if player_type < block_info.break_permissions {
 										cancel = true;
-										reply_queue.push_back(ServerPacket::Message {
-											player_id: -1,
-											message: "Not allowed to break this block.".to_string(),
-										});
+										msg!("&cNot allowed to break this block.".to_string());
 									}
 
 									if cancel {
@@ -305,33 +309,132 @@ async fn handle_stream_inner(
 									yaw,
 									pitch,
 								} => {
-									let packet = ServerPacket::SetPositionOrientation {
-										player_id: *own_id,
-										x,
-										y,
-										z,
-										yaw,
-										pitch,
-									};
 									let mut data = data.write().await;
-									for player in &mut data.players {
-										player.packets_to_send.push(packet.clone());
-									}
+									spread_packet!(
+										data,
+										ServerPacket::SetPositionOrientation {
+											player_id: *own_id,
+											x,
+											y,
+											z,
+											yaw,
+											pitch,
+										}
+									);
 								}
 								ClientPacket::Message { player_id, message } => {
 									let mut data = data.write().await;
-									println!("{message}");
-									let message = format!(
-										"&f<{}> {message}",
-										data.players
-											.iter()
-											.find(|p| p.id == *own_id)
-											.expect("should never fail")
-											.username
-									);
-									let packet = ServerPacket::Message { player_id, message };
-									for player in &mut data.players {
-										player.packets_to_send.push(packet.clone());
+
+									if let Some(message) = message.strip_prefix(Command::PREFIX) {
+										match Command::parse(message) {
+											Ok(cmd) => {
+												let player = data
+													.players
+													.iter()
+													.find(|p| p.id == *own_id)
+													.expect("missing player");
+
+												if cmd.perms_required() > player.player_type {
+													msg!("Permissions do not allow you to use this command".to_string());
+													continue;
+												}
+
+												match cmd {
+													Command::Me { action } => {
+														let message = format!(
+															"&f*{} {action}",
+															data.players
+																.iter()
+																.find(|p| p.id == *own_id)
+																.expect("missing player")
+																.username
+														);
+														spread_packet!(
+															data,
+															ServerPacket::Message {
+																player_id,
+																message,
+															}
+														);
+													}
+													Command::Say { message } => {
+														let message =
+															format!("&d[SERVER] &f{message}");
+														spread_packet!(
+															data,
+															ServerPacket::Message {
+																player_id,
+																message,
+															}
+														);
+													}
+													Command::SetPermissions {
+														player_username,
+														permissions,
+													} => {
+														let player_perms = player.player_type;
+														if player_username == player.username {
+															msg!("Cannot change your own permissions".to_string());
+															continue;
+														} else if permissions >= player_perms {
+															msg!("Cannot set permissions higher or equal to your own".to_string());
+															continue;
+														}
+
+														let perm_string =
+															serde_json::to_string(&permissions)
+																.expect("should never fail");
+
+														let current = data
+															.config
+															.player_perms
+															.entry(player_username.to_string())
+															.or_default();
+														if *current >= player_perms {
+															msg!("This player outranks you"
+																.to_string());
+															continue;
+														}
+
+														*current = permissions;
+														if let Some(p) = data
+															.players
+															.iter_mut()
+															.find(|p| p.username == player_username)
+														{
+															p.player_type = permissions;
+															p.packets_to_send.push(
+																ServerPacket::UpdateUserType {
+																	user_type: p.player_type,
+																},
+															);
+															p.packets_to_send.push(ServerPacket::Message {
+																player_id: p.id,
+																message: format!("Your permissions have been set to {perm_string}")
+															});
+														}
+														msg!(format!("Set permissions for {player_username} to {perm_string}"));
+													}
+												}
+											}
+											Err(msg) => {
+												msg!(format!("&c{msg}"));
+											}
+										}
+									} else {
+										println!("{message}");
+										let message = format!(
+											"&f<{}> {message}",
+											data.players
+												.iter()
+												.find(|p| p.id == *own_id)
+												.expect("should never fail")
+												.username
+										);
+										spread_packet!(
+											data,
+											ServerPacket::Message { player_id, message }
+										);
 									}
 								}
 							}

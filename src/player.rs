@@ -33,12 +33,13 @@ pub struct Player {
 
 /// enum describing types of players
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[repr(u8)]
 pub enum PlayerType {
 	/// a normal player
-	Normal = 0x00,
+	Normal,
+	/// moderator of the server
+	Moderator,
 	/// a player who's an operator
-	Operator = 0x64,
+	Operator,
 }
 
 impl Default for PlayerType {
@@ -47,16 +48,25 @@ impl Default for PlayerType {
 	}
 }
 
-impl TryFrom<u8> for PlayerType {
-	type Error = ();
-
-	fn try_from(value: u8) -> Result<Self, Self::Error> {
-		if value == Self::Normal as u8 {
-			Ok(Self::Normal)
-		} else if value == Self::Operator as u8 {
-			Ok(Self::Operator)
-		} else {
-			Err(())
+impl From<&PlayerType> for u8 {
+	fn from(val: &PlayerType) -> Self {
+		match val {
+			PlayerType::Normal => 0,
+			PlayerType::Moderator => 0x64,
+			PlayerType::Operator => 0x64,
 		}
+	}
+}
+
+impl TryFrom<&str> for PlayerType {
+	type Error = String;
+
+	fn try_from(value: &str) -> Result<Self, Self::Error> {
+		Ok(match value.to_lowercase().as_str() {
+			"normal" => Self::Normal,
+			"moderator" => Self::Moderator,
+			"operator" => Self::Operator,
+			value => return Err(format!("Unknown permissions type: {value}")),
+		})
 	}
 }

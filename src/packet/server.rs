@@ -127,7 +127,7 @@ impl ServerPacket {
 				.write_u8(*protocol_version)
 				.write_string(server_name)
 				.write_string(server_motd)
-				.write_u8(*user_type as u8),
+				.write_u8(user_type.into()),
 			Self::Ping {} => writer,
 			Self::LevelInitialize {} => writer,
 			Self::LevelDataChunk {
@@ -220,7 +220,7 @@ impl ServerPacket {
 				writer.write_i8(*player_id).write_string(message)
 			}
 			Self::DisconnectPlayer { disconnect_reason } => writer.write_string(disconnect_reason),
-			Self::UpdateUserType { user_type } => writer.write_u8(*user_type as u8),
+			Self::UpdateUserType { user_type } => writer.write_u8(user_type.into()),
 		}
 	}
 
