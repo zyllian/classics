@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use optional_struct::optional_struct;
 use serde::{Deserialize, Serialize};
 
-use crate::level::generation::LevelGeneration;
+use crate::{level::generation::LevelGeneration, player::PlayerType};
 
 /// configuration for the server
 #[optional_struct]
@@ -16,6 +16,8 @@ pub struct ServerConfig {
 	/// the server's protection mode
 	#[serde(rename = "password")]
 	pub protection_mode: ServerProtectionMode,
+	/// map of user permissions
+	pub player_perms: BTreeMap<String, PlayerType>,
 	/// the level's size
 	pub level_size: ConfigCoordinates,
 	/// the level's spawn point
@@ -37,6 +39,7 @@ impl Default for ServerConfig {
 			name: "classic server wowie".to_string(),
 			motd: "here's the default server motd".to_string(),
 			protection_mode: ServerProtectionMode::None,
+			player_perms: Default::default(),
 			level_size: ConfigCoordinates {
 				x: 256,
 				y: 64,

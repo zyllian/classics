@@ -141,6 +141,13 @@ async fn handle_stream_inner(
 										.pop()
 										.unwrap_or_else(|| data.players.len() as i8);
 
+									let player_type = data
+										.config
+										.player_perms
+										.get(&username)
+										.copied()
+										.unwrap_or_default();
+
 									let player = Player {
 										_addr: addr,
 										id: *own_id, // TODO: actually assign user ids
@@ -151,7 +158,7 @@ async fn handle_stream_inner(
 										z: zero,
 										yaw: 0,
 										pitch: 0,
-										player_type: PlayerType::Normal,
+										player_type,
 										packets_to_send: Vec::new(),
 									};
 
@@ -159,7 +166,7 @@ async fn handle_stream_inner(
 										protocol_version: 0x07,
 										server_name: data.config.name.clone(),
 										server_motd: data.config.motd.clone(),
-										user_type: PlayerType::Normal,
+										user_type: player_type,
 									});
 
 									println!("generating level packets");

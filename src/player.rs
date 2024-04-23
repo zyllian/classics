@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use half::f16;
+use serde::{Deserialize, Serialize};
 
 use crate::packet::server::ServerPacket;
 
@@ -31,7 +32,7 @@ pub struct Player {
 }
 
 /// enum describing types of players
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum PlayerType {
 	/// a normal player
