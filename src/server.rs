@@ -116,6 +116,7 @@ impl Server {
 /// function to tick the server
 async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 	let mut current_tick = 0;
+	let mut last_auto_save = std::time::Instant::now();
 	loop {
 		{
 			let mut data = data.write().await;
@@ -138,8 +139,14 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 				for player in &mut data.players {
 					player.packets_to_send.push(packet.clone());
 				}
-				// TODO: save level before exiting
 				break;
+			}
+
+			if data.config.auto_save_minutes != 0
+				&& last_auto_save.elapsed().as_secs() / 60 >= data.config.auto_save_minutes
+			{
+				data.level.save(LEVEL_PATH).await;
+				last_auto_save = std::time::Instant::now();
 			}
 		}
 

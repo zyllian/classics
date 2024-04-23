@@ -24,6 +24,8 @@ pub struct ServerConfig {
 	pub spawn: Option<ConfigCoordinates>,
 	/// the method to generate the server's level with
 	pub generation: LevelGeneration,
+	/// the server should auto save the world every X minutes, 0 to disable
+	pub auto_save_minutes: u64,
 }
 
 impl OptionalServerConfig {
@@ -47,6 +49,7 @@ impl Default for ServerConfig {
 			},
 			spawn: None,
 			generation: LevelGeneration::Flat(crate::level::generation::FlatPreset::StoneAndGrass),
+			auto_save_minutes: 1,
 		}
 	}
 }
