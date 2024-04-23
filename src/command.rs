@@ -4,6 +4,7 @@ const CMD_ME: &str = "me";
 const CMD_SAY: &str = "say";
 const CMD_SET_PERM: &str = "setperm";
 const CMD_KICK: &str = "kick";
+const CMD_STOP: &str = "stop";
 
 /// enum for possible commands
 #[derive(Debug, Clone)]
@@ -19,10 +20,13 @@ pub enum Command<'m> {
 		player_username: &'m str,
 		permissions: PlayerType,
 	},
+	/// kicks a player from the server
 	Kick {
 		username: &'m str,
 		message: Option<&'m str>,
 	},
+	/// command to stop the server
+	Stop,
 }
 
 impl<'m> Command<'m> {
@@ -45,6 +49,7 @@ impl<'m> Command<'m> {
 				let message = (!message.is_empty()).then_some(message);
 				Self::Kick { username, message }
 			}
+			CMD_STOP => Self::Stop,
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
@@ -53,6 +58,7 @@ impl<'m> Command<'m> {
 	pub fn perms_required(&self) -> PlayerType {
 		match self {
 			Self::Me { .. } => PlayerType::Normal,
+			Self::Stop => PlayerType::Operator,
 			_ => PlayerType::Moderator,
 		}
 	}

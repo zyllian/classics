@@ -29,7 +29,7 @@ async fn main() -> std::io::Result<()> {
 
 	println!("starting server with config: {config:#?}");
 
-	let mut server = Server::new(config).await?;
+	let server = Server::new(config).await?;
 
 	server.run().await?;
 

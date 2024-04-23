@@ -467,6 +467,10 @@ async fn handle_stream_inner(
 															);
 														}
 													}
+
+													Command::Stop => {
+														data.stop = true;
+													}
 												}
 											}
 											Err(msg) => {

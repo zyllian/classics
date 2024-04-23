@@ -10,6 +10,7 @@ use crate::{
 		block::{BlockType, BLOCK_INFO},
 		BlockUpdate, Level,
 	},
+	packet::server::ServerPacket,
 	player::Player,
 	util::neighbors_minus_up,
 	CONFIG_FILE,
@@ -41,6 +42,8 @@ pub struct ServerData {
 	pub config: ServerConfig,
 	/// whether the server config needs to be resaved or not
 	pub config_needs_saving: bool,
+	/// whether the server should be stopped
+	pub stop: bool,
 }
 
 impl Server {
@@ -70,27 +73,34 @@ impl Server {
 				free_player_ids: Vec::new(),
 				config,
 				config_needs_saving: true,
+				stop: false,
 			})),
 			listener,
 		})
 	}
 
 	/// starts the server
-	pub async fn run(&mut self) -> std::io::Result<()> {
+	pub async fn run(self) -> std::io::Result<()> {
 		let data = self.data.clone();
 		tokio::spawn(async move {
-			handle_ticks(data).await;
+			loop {
+				let (stream, addr) = self.listener.accept().await.unwrap();
+				println!("connection from {addr}");
+				let data = data.clone();
+				tokio::spawn(async move {
+					network::handle_stream(stream, addr, data)
+						.await
+						.expect("failed to handle client stream");
+				});
+			}
 		});
-		loop {
-			let (stream, addr) = self.listener.accept().await?;
-			println!("connection from {addr}");
-			let data = self.data.clone();
-			tokio::spawn(async move {
-				network::handle_stream(stream, addr, data)
-					.await
-					.expect("failed to handle client stream");
-			});
-		}
+		handle_ticks(self.data).await;
+		tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+
+		// TODO: cancel pending tasks/send out "Server is stopping" messages *here* instead of elsewhere
+		// rn the message isn't guaranteed to actually go out........
+
+		Ok(())
 	}
 }
 
@@ -110,6 +120,17 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 				)
 				.expect("failed to save config file");
 				data.config_needs_saving = false;
+			}
+
+			if data.stop {
+				let packet = ServerPacket::DisconnectPlayer {
+					disconnect_reason: "Server is stopping!".to_string(),
+				};
+				for player in &mut data.players {
+					player.packets_to_send.push(packet.clone());
+				}
+				// TODO: save level before exiting
+				break;
 			}
 		}
 
