@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+use bincode::{Decode, Encode};
+
 use crate::{packet::server::ServerPacket, util::neighbors};
 
 use self::block::BLOCK_INFO;
@@ -8,7 +10,7 @@ pub mod block;
 pub mod generation;
 
 /// a classic level
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct Level {
 	/// the size of the level in the X direction
 	pub x_size: usize,
@@ -91,7 +93,7 @@ impl Level {
 }
 
 /// struct describing a block update for the level to handle
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub struct BlockUpdate {
 	/// the index of the block to be updated
 	pub index: usize,

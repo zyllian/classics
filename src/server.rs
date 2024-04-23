@@ -94,11 +94,19 @@ impl Server {
 				});
 			}
 		});
-		handle_ticks(self.data).await;
+		handle_ticks(self.data.clone()).await;
 		tokio::time::sleep(std::time::Duration::from_millis(1)).await;
 
 		// TODO: cancel pending tasks/send out "Server is stopping" messages *here* instead of elsewhere
 		// rn the message isn't guaranteed to actually go out........
+
+		let data = self.data.read().await;
+		let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+		bincode::encode_into_std_write(&data.level, &mut encoder, bincode::config::standard())
+			.unwrap();
+		tokio::fs::write("level.clw", encoder.finish().unwrap())
+			.await
+			.unwrap();
 
 		Ok(())
 	}
