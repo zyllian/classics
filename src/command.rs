@@ -21,8 +21,10 @@ pub enum Command<'m> {
 }
 
 impl<'m> Command<'m> {
+	/// the prefix for commands
 	pub const PREFIX: char = '/';
 
+	/// parses a command, returning the parsed command or an error to be displayed to the player who sent the command
 	pub fn parse(input: &'m str) -> Result<Command, String> {
 		let (command_name, mut arguments) = input.split_once(' ').unwrap_or((input, ""));
 		Ok(match command_name {
@@ -36,6 +38,7 @@ impl<'m> Command<'m> {
 		})
 	}
 
+	/// checks which permissions are required to run this command
 	pub fn perms_required(&self) -> PlayerType {
 		match self {
 			Self::Me { .. } => PlayerType::Normal,
@@ -43,6 +46,7 @@ impl<'m> Command<'m> {
 		}
 	}
 
+	/// gets the next string argument from the command
 	fn next_string(args: &mut &'m str) -> Result<&'m str, String> {
 		if args.is_empty() {
 			return Err("Missing argument".to_string());
