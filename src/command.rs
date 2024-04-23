@@ -3,6 +3,7 @@ use crate::player::PlayerType;
 const CMD_ME: &str = "me";
 const CMD_SAY: &str = "say";
 const CMD_SET_PERM: &str = "set-perm";
+const CMD_KICK: &str = "kick";
 
 /// enum for possible commands
 #[derive(Debug, Clone)]
@@ -17,6 +18,10 @@ pub enum Command<'m> {
 	SetPermissions {
 		player_username: &'m str,
 		permissions: PlayerType,
+	},
+	Kick {
+		username: &'m str,
+		message: Option<&'m str>,
 	},
 }
 
@@ -34,6 +39,12 @@ impl<'m> Command<'m> {
 				player_username: Self::next_string(&mut arguments)?,
 				permissions: arguments.trim().try_into()?,
 			},
+			CMD_KICK => {
+				let username = Self::next_string(&mut arguments)?;
+				let message = arguments.trim();
+				let message = (!message.is_empty()).then_some(message);
+				Self::Kick { username, message }
+			}
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}

@@ -29,6 +29,8 @@ pub struct Player {
 	pub _addr: SocketAddr,
 	/// queue of packets to be sent to this player
 	pub packets_to_send: Vec<ServerPacket>,
+	/// whether this player should be kicked and the message to give
+	pub should_be_kicked: Option<String>,
 }
 
 /// enum describing types of players

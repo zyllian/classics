@@ -48,6 +48,7 @@ pub(super) async fn handle_stream(
 	let mut data = data.write().await;
 	if let Some(index) = data.players.iter().position(|p| p.id == own_id) {
 		let player = data.players.remove(index);
+		data.free_player_ids.push(player.id);
 
 		let despawn_packet = ServerPacket::DespawnPlayer { player_id: own_id };
 		let message_packet = ServerPacket::Message {
@@ -92,6 +93,12 @@ async fn handle_stream_inner(
 	}
 
 	loop {
+		if let Some(player) = data.read().await.players.iter().find(|p| p.id == *own_id) {
+			if let Some(msg) = &player.should_be_kicked {
+				return Ok(Some(format!("Kicked: {msg}")));
+			}
+		}
+
 		let ready = stream
 			.ready(Interest::READABLE | Interest::WRITABLE)
 			.await?;
@@ -179,6 +186,7 @@ async fn handle_stream_inner(
 										pitch: 0,
 										player_type,
 										packets_to_send: Vec::new(),
+										should_be_kicked: None,
 									};
 
 									reply_queue.push_back(ServerPacket::ServerIdentification {
@@ -335,7 +343,7 @@ async fn handle_stream_inner(
 													.expect("missing player");
 
 												if cmd.perms_required() > player.player_type {
-													msg!("Permissions do not allow you to use this command".to_string());
+													msg!("&cPermissions do not allow you to use this command".to_string());
 													continue;
 												}
 
@@ -374,10 +382,10 @@ async fn handle_stream_inner(
 													} => {
 														let player_perms = player.player_type;
 														if player_username == player.username {
-															msg!("Cannot change your own permissions".to_string());
+															msg!("&cCannot change your own permissions".to_string());
 															continue;
 														} else if permissions >= player_perms {
-															msg!("Cannot set permissions higher or equal to your own".to_string());
+															msg!("&cCannot set permissions higher or equal to your own".to_string());
 															continue;
 														}
 
@@ -391,7 +399,7 @@ async fn handle_stream_inner(
 															.entry(player_username.to_string())
 															.or_default();
 														if *current >= player_perms {
-															msg!("This player outranks you"
+															msg!("&cThis player outranks or is the same rank as you"
 																.to_string());
 															continue;
 														}
@@ -414,6 +422,37 @@ async fn handle_stream_inner(
 															});
 														}
 														msg!(format!("Set permissions for {player_username} to {perm_string}"));
+													}
+													Command::Kick { username, message } => {
+														let player_perms = player.player_type;
+
+														if let Some(other_player) = data
+															.players
+															.iter_mut()
+															.find(|p| p.username == username)
+														{
+															if player_perms
+																<= other_player.player_type
+															{
+																msg!("&cThis player outranks or is the same rank as you".to_string());
+																continue;
+															}
+
+															other_player.should_be_kicked = Some(
+																message
+																	.unwrap_or("<no message>")
+																	.to_string(),
+															);
+															msg!(format!(
+																"{} has been kicked",
+																other_player.username
+															));
+														} else {
+															msg!(
+																"&cPlayer not connected to server!"
+																	.to_string()
+															);
+														}
 													}
 												}
 											}
