@@ -26,10 +26,6 @@ async fn main() -> std::io::Result<()> {
 	} else {
 		ServerConfig::default()
 	};
-	std::fs::write(
-		config_path,
-		serde_json::to_string_pretty(&config).expect("failed to serialize default config"),
-	)?;
 
 	println!("starting server with config: {config:#?}");
 

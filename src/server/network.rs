@@ -393,18 +393,31 @@ async fn handle_stream_inner(
 															serde_json::to_string(&permissions)
 																.expect("should never fail");
 
-														let current = data
+														if let Some(current) = data
 															.config
 															.player_perms
-															.entry(player_username.to_string())
-															.or_default();
-														if *current >= player_perms {
-															msg!("&cThis player outranks or is the same rank as you"
+															.get(player_username)
+														{
+															if *current >= player_perms {
+																msg!("&cThis player outranks or is the same rank as you"
 																.to_string());
-															continue;
+																continue;
+															}
 														}
 
-														*current = permissions;
+														data.config_needs_saving = true;
+
+														if matches!(permissions, PlayerType::Normal)
+														{
+															data.config
+																.player_perms
+																.remove(player_username);
+														} else {
+															data.config.player_perms.insert(
+																player_username.to_string(),
+																permissions,
+															);
+														}
 														if let Some(p) = data
 															.players
 															.iter_mut()

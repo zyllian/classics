@@ -12,6 +12,7 @@ use crate::{
 	},
 	player::Player,
 	util::neighbors_minus_up,
+	CONFIG_FILE,
 };
 
 use self::config::ServerConfig;
@@ -38,6 +39,8 @@ pub struct ServerData {
 	pub free_player_ids: Vec<i8>,
 	/// the server's config
 	pub config: ServerConfig,
+	/// whether the server config needs to be resaved or not
+	pub config_needs_saving: bool,
 }
 
 impl Server {
@@ -66,6 +69,7 @@ impl Server {
 				players: Default::default(),
 				free_player_ids: Vec::new(),
 				config,
+				config_needs_saving: true,
 			})),
 			listener,
 		})
@@ -94,7 +98,21 @@ impl Server {
 async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 	let mut current_tick = 0;
 	loop {
-		tick(&mut *data.write().await, current_tick);
+		{
+			let mut data = data.write().await;
+			tick(&mut data, current_tick);
+
+			if data.config_needs_saving {
+				std::fs::write(
+					CONFIG_FILE,
+					serde_json::to_string_pretty(&data.config)
+						.expect("failed to serialize default config"),
+				)
+				.expect("failed to save config file");
+				data.config_needs_saving = false;
+			}
+		}
+
 		current_tick = current_tick.wrapping_add(1);
 		tokio::time::sleep(TICK_DURATION).await;
 	}
