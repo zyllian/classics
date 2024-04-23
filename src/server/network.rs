@@ -10,9 +10,11 @@ use tokio::{
 };
 
 use crate::{
-	command::Command,
+	command::{Command, COMMANDS_LIST},
 	level::{block::BLOCK_INFO, BlockUpdate, Level},
-	packet::{client::ClientPacket, server::ServerPacket, PacketWriter, ARRAY_LENGTH},
+	packet::{
+		client::ClientPacket, server::ServerPacket, PacketWriter, ARRAY_LENGTH, STRING_LENGTH,
+	},
 	player::{Player, PlayerType},
 	server::config::ServerProtectionMode,
 };
@@ -365,6 +367,7 @@ async fn handle_stream_inner(
 															}
 														);
 													}
+
 													Command::Say { message } => {
 														let message =
 															format!("&d[SERVER] &f{message}");
@@ -376,6 +379,7 @@ async fn handle_stream_inner(
 															}
 														);
 													}
+
 													Command::SetPermissions {
 														player_username,
 														permissions,
@@ -470,6 +474,48 @@ async fn handle_stream_inner(
 
 													Command::Stop => {
 														data.stop = true;
+													}
+
+													Command::Help { command } => {
+														let messages =
+															if let Some(command) = command {
+																Command::help(command)
+															} else {
+																let mut messages = vec![
+																	"Commands available to you:"
+																		.to_string(),
+																];
+																let mut current_message =
+																	"&f".to_string();
+																for command in COMMANDS_LIST.iter()
+																{
+																	if Command::perms_required_by_name(command) > player.player_type {
+																	continue;
+																}
+																	if current_message.len()
+																		+ 3 + command.len()
+																		> STRING_LENGTH
+																	{
+																		messages.push(format!(
+																			"{current_message},"
+																		));
+																		current_message =
+																			"&f".to_string();
+																	}
+																	if current_message.len() == 2 {
+																		current_message = format!("{current_message}{command}");
+																	} else {
+																		current_message = format!("{current_message}, {command}");
+																	}
+																}
+																if !current_message.is_empty() {
+																	messages.push(current_message);
+																}
+																messages
+															};
+														for msg in messages {
+															msg!(msg);
+														}
 													}
 												}
 											}

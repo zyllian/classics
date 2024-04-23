@@ -5,6 +5,10 @@ const CMD_SAY: &str = "say";
 const CMD_SET_PERM: &str = "setperm";
 const CMD_KICK: &str = "kick";
 const CMD_STOP: &str = "stop";
+const CMD_HELP: &str = "help";
+
+/// list of commands available on the server
+pub const COMMANDS_LIST: &[&str] = &[CMD_ME, CMD_SAY, CMD_SET_PERM, CMD_KICK, CMD_STOP, CMD_HELP];
 
 /// enum for possible commands
 #[derive(Debug, Clone)]
@@ -27,6 +31,8 @@ pub enum Command<'m> {
 	},
 	/// command to stop the server
 	Stop,
+	/// gets help about the given command, or about all commands if no command is given
+	Help { command: Option<&'m str> },
 }
 
 impl<'m> Command<'m> {
@@ -50,16 +56,70 @@ impl<'m> Command<'m> {
 				Self::Kick { username, message }
 			}
 			CMD_STOP => Self::Stop,
+			CMD_HELP => Self::Help {
+				command: (!arguments.is_empty()).then_some(arguments),
+			},
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
 
+	/// gets the command's name
+	pub fn command_name(&self) -> &'static str {
+		match self {
+			Self::Me { .. } => CMD_ME,
+			Self::Say { .. } => CMD_SAY,
+			Self::SetPermissions { .. } => CMD_SET_PERM,
+			Self::Kick { .. } => CMD_KICK,
+			Self::Stop => CMD_STOP,
+			Self::Help { .. } => CMD_HELP,
+		}
+	}
+
 	/// checks which permissions are required to run this command
 	pub fn perms_required(&self) -> PlayerType {
-		match self {
-			Self::Me { .. } => PlayerType::Normal,
-			Self::Stop => PlayerType::Operator,
+		Self::perms_required_by_name(self.command_name())
+	}
+
+	/// checks which permissions are required to run a command by name
+	pub fn perms_required_by_name(cmd: &str) -> PlayerType {
+		match cmd {
+			CMD_ME => PlayerType::Normal,
+			CMD_STOP => PlayerType::Operator,
+			CMD_HELP => PlayerType::Normal,
 			_ => PlayerType::Moderator,
+		}
+	}
+
+	/// gets help about the given command
+	pub fn help(cmd: &str) -> Vec<String> {
+		let c = |t: &str| format!("&f{}{cmd} {t}", Self::PREFIX);
+
+		match cmd {
+			CMD_ME => vec![
+				c("<action>"),
+				"&fDisplays an action as if you're doing it.".to_string(),
+			],
+			CMD_SAY => vec![
+				c("<message>"),
+				"&fSends a message as being from the server.".to_string(),
+			],
+			CMD_SET_PERM => vec![
+				c("<username> <permission level>"),
+				"&fSets a player's permission level.".to_string(),
+			],
+			CMD_KICK => vec![
+				c("<username> [reason]"),
+				"&fKicks a player from the server.".to_string(),
+			],
+			CMD_STOP => vec![
+				c(""),
+				"&fStops the server while saving the level.".to_string(),
+			],
+			CMD_HELP => vec![
+				c("[command]"),
+				"&fGets a list of commands or help about a command.".to_string(),
+			],
+			_ => vec!["&eUnknown command!".to_string()],
 		}
 	}
 
