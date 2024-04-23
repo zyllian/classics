@@ -1,7 +1,7 @@
 pub mod config;
 mod network;
 
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use tokio::{net::TcpListener, sync::RwLock};
 
@@ -19,6 +19,7 @@ use crate::{
 use self::config::ServerConfig;
 
 const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(50);
+const LEVEL_PATH: &str = "level.clw";
 
 /// the server
 #[derive(Debug)]
@@ -49,15 +50,21 @@ pub struct ServerData {
 impl Server {
 	/// creates a new server with a generated level
 	pub async fn new(config: ServerConfig) -> std::io::Result<Self> {
-		println!("generating level");
-		let mut rng = rand::thread_rng();
-		let mut level = Level::new(
-			config.level_size.x,
-			config.level_size.y,
-			config.level_size.z,
-		);
-		config.generation.generate(&mut level, &mut rng);
-		println!("done!");
+		let level_path = PathBuf::from(LEVEL_PATH);
+		let level = if level_path.exists() {
+			Level::load(level_path).await
+		} else {
+			println!("generating level");
+			let mut rng = rand::thread_rng();
+			let mut level = Level::new(
+				config.level_size.x,
+				config.level_size.y,
+				config.level_size.z,
+			);
+			config.generation.generate(&mut level, &mut rng);
+			println!("done!");
+			level
+		};
 
 		Self::new_with_level(config, level).await
 	}
@@ -100,13 +107,7 @@ impl Server {
 		// TODO: cancel pending tasks/send out "Server is stopping" messages *here* instead of elsewhere
 		// rn the message isn't guaranteed to actually go out........
 
-		let data = self.data.read().await;
-		let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
-		bincode::encode_into_std_write(&data.level, &mut encoder, bincode::config::standard())
-			.unwrap();
-		tokio::fs::write("level.clw", encoder.finish().unwrap())
-			.await
-			.unwrap();
+		self.data.read().await.level.save(LEVEL_PATH).await;
 
 		Ok(())
 	}

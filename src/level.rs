@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::Path};
 
 use bincode::{Decode, Encode};
 
@@ -89,6 +89,26 @@ impl Level {
 		}
 
 		packets
+	}
+
+	pub async fn save<P>(&self, path: P)
+	where
+		P: AsRef<Path>,
+	{
+		let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+		bincode::encode_into_std_write(self, &mut encoder, bincode::config::standard()).unwrap();
+		tokio::fs::write(path, encoder.finish().unwrap())
+			.await
+			.unwrap();
+	}
+
+	pub async fn load<P>(path: P) -> Self
+	where
+		P: AsRef<Path>,
+	{
+		let data = tokio::fs::read(path).await.unwrap();
+		let mut decoder = flate2::read::GzDecoder::new(data.as_slice());
+		bincode::decode_from_std_read(&mut decoder, bincode::config::standard()).unwrap()
 	}
 }
 
