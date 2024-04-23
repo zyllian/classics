@@ -26,7 +26,7 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 			BlockInfo::new("water_flowing")
 				.block_type(BlockType::FluidFlowing {
 					stationary: 0x09,
-					ticks_to_spread: 1,
+					ticks_to_spread: 3,
 				})
 				.perm(PlayerType::Operator, PlayerType::Normal),
 		),
@@ -41,7 +41,7 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 			BlockInfo::new("lava_flowing")
 				.block_type(BlockType::FluidFlowing {
 					stationary: 0x0b,
-					ticks_to_spread: 5,
+					ticks_to_spread: 15,
 				})
 				.perm(PlayerType::Operator, PlayerType::Normal),
 		),
