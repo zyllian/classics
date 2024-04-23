@@ -2,7 +2,7 @@ use crate::player::PlayerType;
 
 const CMD_ME: &str = "me";
 const CMD_SAY: &str = "say";
-const CMD_SET_PERM: &str = "set-perm";
+const CMD_SET_PERM: &str = "setperm";
 const CMD_KICK: &str = "kick";
 
 /// enum for possible commands
