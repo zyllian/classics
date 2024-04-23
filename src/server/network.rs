@@ -186,7 +186,7 @@ async fn handle_stream_inner(
 										z: zero,
 										yaw: 0,
 										pitch: 0,
-										player_type,
+										permissions: player_type,
 										packets_to_send: Vec::new(),
 										should_be_kicked: None,
 									};
@@ -282,7 +282,7 @@ async fn handle_stream_inner(
 									let player_type = data
 										.players
 										.iter()
-										.find_map(|p| (p.id == *own_id).then_some(p.player_type))
+										.find_map(|p| (p.id == *own_id).then_some(p.permissions))
 										.unwrap_or_default();
 									if player_type < new_block_info.place_permissions {
 										cancel = true;
@@ -344,7 +344,7 @@ async fn handle_stream_inner(
 													.find(|p| p.id == *own_id)
 													.expect("missing player");
 
-												if cmd.perms_required() > player.player_type {
+												if cmd.perms_required() > player.permissions {
 													msg!("&cPermissions do not allow you to use this command".to_string());
 													continue;
 												}
@@ -384,7 +384,7 @@ async fn handle_stream_inner(
 														player_username,
 														permissions,
 													} => {
-														let player_perms = player.player_type;
+														let player_perms = player.permissions;
 														if player_username == player.username {
 															msg!("&cCannot change your own permissions".to_string());
 															continue;
@@ -427,10 +427,10 @@ async fn handle_stream_inner(
 															.iter_mut()
 															.find(|p| p.username == player_username)
 														{
-															p.player_type = permissions;
+															p.permissions = permissions;
 															p.packets_to_send.push(
 																ServerPacket::UpdateUserType {
-																	user_type: p.player_type,
+																	user_type: p.permissions,
 																},
 															);
 															p.packets_to_send.push(ServerPacket::Message {
@@ -441,7 +441,7 @@ async fn handle_stream_inner(
 														msg!(format!("Set permissions for {player_username} to {perm_string}"));
 													}
 													Command::Kick { username, message } => {
-														let player_perms = player.player_type;
+														let player_perms = player.permissions;
 
 														if let Some(other_player) = data
 															.players
@@ -449,7 +449,7 @@ async fn handle_stream_inner(
 															.find(|p| p.username == username)
 														{
 															if player_perms
-																<= other_player.player_type
+																<= other_player.permissions
 															{
 																msg!("&cThis player outranks or is the same rank as you".to_string());
 																continue;
@@ -489,7 +489,7 @@ async fn handle_stream_inner(
 																	"&f".to_string();
 																for command in COMMANDS_LIST.iter()
 																{
-																	if Command::perms_required_by_name(command) > player.player_type {
+																	if Command::perms_required_by_name(command) > player.permissions {
 																	continue;
 																}
 																	if current_message.len()

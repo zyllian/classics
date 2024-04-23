@@ -23,7 +23,7 @@ pub struct Player {
 	/// the player's pitch
 	pub pitch: u8,
 	/// the player's permission state
-	pub player_type: PlayerType,
+	pub permissions: PlayerType,
 
 	/// the player's IP address
 	pub _addr: SocketAddr,
