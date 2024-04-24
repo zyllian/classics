@@ -455,11 +455,12 @@ async fn handle_stream_inner(
 																continue;
 															}
 
-															other_player.should_be_kicked = Some(
-																message
-																	.unwrap_or("<no message>")
-																	.to_string(),
-															);
+															other_player.should_be_kicked =
+																Some(format!(
+																	"Kicked: {}",
+																	message
+																		.unwrap_or("<no message>")
+																));
 															msg!(format!(
 																"{} has been kicked",
 																other_player.username
@@ -515,6 +516,74 @@ async fn handle_stream_inner(
 															};
 														for msg in messages {
 															msg!(msg);
+														}
+													}
+
+													Command::Ban {
+														player_username,
+														message,
+													} => {
+														let player_perms = player.permissions;
+														if let ServerProtectionMode::PasswordsByUser(passwords) = &mut data.config.protection_mode {
+															if !passwords.contains_key(player_username) {
+																msg!("&cPlayer is already banned!".to_string());
+															} else {
+																passwords.remove(player_username);
+																data.config.player_perms.remove(player_username);
+																data.config_needs_saving = true;
+																if let Some(other_player) =
+																	data.players.iter_mut().find(|p| {
+																		p.username == player_username
+																	}) {
+																	if player_perms
+																		<= other_player.permissions
+																	{
+																		msg!("&cThis player outranks or is the same rank as you".to_string());
+																		continue;
+																	}
+
+																	other_player.should_be_kicked =
+																		Some(format!("Banned: {}", message.unwrap_or("<no_message>")));
+																}
+																msg!(format!(
+																	"{} has been banned",
+																	player_username
+																));
+															}
+														} else {
+															msg!("&cServer must be set to per-user passwords!".to_string());
+														}
+													}
+
+													Command::AllowEntry {
+														player_username,
+														password,
+													} => {
+														if let ServerProtectionMode::PasswordsByUser(passwords) = &mut data.config.protection_mode {
+															if passwords.contains_key(player_username) {
+																msg!("&cPlayer is already allowed in the server!".to_string());
+															} else {
+																let password = password.map(|p| p.to_string()).unwrap_or_else(|| {
+																	nanoid::nanoid!()
+																});
+																msg!(format!("{player_username} is now allowed in the server."));
+																msg!(format!("Password: {password}"));
+																passwords.insert(player_username.to_string(), password);
+																data.config_needs_saving = true;
+															}
+														} else {
+															msg!("&cServer must be set to per-user passwords!".to_string());
+														}
+													}
+
+													Command::SetPass { password } => {
+														let username = player.username.clone();
+														if let ServerProtectionMode::PasswordsByUser(passwords) = &mut data.config.protection_mode {
+															passwords.insert(username, password.to_string());
+															data.config_needs_saving = true;
+															msg!("Updated password!".to_string());
+														} else {
+															msg!("&cServer must be set to per-user passwords!".to_string());
 														}
 													}
 												}

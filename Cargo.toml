@@ -9,6 +9,7 @@ bytes = "1"
 flate2 = "1"
 half = "2"
 internment = {version = "0.8", features = ["serde"]}
+nanoid = "0.4"
 optional_struct = "0.4"
 parking_lot = "0.12"
 rand = "0.8"

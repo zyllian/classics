@@ -2,13 +2,26 @@ use crate::player::PlayerType;
 
 const CMD_ME: &str = "me";
 const CMD_SAY: &str = "say";
-const CMD_SET_PERM: &str = "setperm";
+const CMD_SETPERM: &str = "setperm";
 const CMD_KICK: &str = "kick";
 const CMD_STOP: &str = "stop";
 const CMD_HELP: &str = "help";
+const CMD_BAN: &str = "ban";
+const CMD_ALLOWENTRY: &str = "allowentry";
+const CMD_SETPASS: &str = "setpass";
 
 /// list of commands available on the server
-pub const COMMANDS_LIST: &[&str] = &[CMD_ME, CMD_SAY, CMD_SET_PERM, CMD_KICK, CMD_STOP, CMD_HELP];
+pub const COMMANDS_LIST: &[&str] = &[
+	CMD_ME,
+	CMD_SAY,
+	CMD_SETPERM,
+	CMD_KICK,
+	CMD_STOP,
+	CMD_HELP,
+	CMD_BAN,
+	CMD_ALLOWENTRY,
+	CMD_SETPASS,
+];
 
 /// enum for possible commands
 #[derive(Debug, Clone)]
@@ -33,6 +46,18 @@ pub enum Command<'m> {
 	Stop,
 	/// gets help about the given command, or about all commands if no command is given
 	Help { command: Option<&'m str> },
+	/// bans a player from the server
+	Ban {
+		player_username: &'m str,
+		message: Option<&'m str>,
+	},
+	/// allows a player entry into the server
+	AllowEntry {
+		player_username: &'m str,
+		password: Option<&'m str>,
+	},
+	/// sets the current player's password
+	SetPass { password: &'m str },
 }
 
 impl<'m> Command<'m> {
@@ -45,7 +70,7 @@ impl<'m> Command<'m> {
 		Ok(match command_name {
 			CMD_ME => Self::Me { action: arguments },
 			CMD_SAY => Self::Say { message: arguments },
-			CMD_SET_PERM => Self::SetPermissions {
+			CMD_SETPERM => Self::SetPermissions {
 				player_username: Self::next_string(&mut arguments)?,
 				permissions: arguments.trim().try_into()?,
 			},
@@ -59,6 +84,27 @@ impl<'m> Command<'m> {
 			CMD_HELP => Self::Help {
 				command: (!arguments.is_empty()).then_some(arguments),
 			},
+			CMD_BAN => {
+				let player_username = Self::next_string(&mut arguments)?;
+				let message = arguments.trim();
+				let message = (!message.is_empty()).then_some(message);
+				Self::Ban {
+					player_username,
+					message,
+				}
+			}
+			CMD_ALLOWENTRY => {
+				let player_username = Self::next_string(&mut arguments)?;
+				let password = arguments.trim();
+				let password = (!password.is_empty()).then_some(password);
+				Self::AllowEntry {
+					player_username,
+					password,
+				}
+			}
+			CMD_SETPASS => Self::SetPass {
+				password: arguments.trim(),
+			},
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
@@ -68,10 +114,13 @@ impl<'m> Command<'m> {
 		match self {
 			Self::Me { .. } => CMD_ME,
 			Self::Say { .. } => CMD_SAY,
-			Self::SetPermissions { .. } => CMD_SET_PERM,
+			Self::SetPermissions { .. } => CMD_SETPERM,
 			Self::Kick { .. } => CMD_KICK,
 			Self::Stop => CMD_STOP,
 			Self::Help { .. } => CMD_HELP,
+			Self::Ban { .. } => CMD_BAN,
+			Self::AllowEntry { .. } => CMD_ALLOWENTRY,
+			Self::SetPass { .. } => CMD_SETPASS,
 		}
 	}
 
@@ -86,6 +135,7 @@ impl<'m> Command<'m> {
 			CMD_ME => PlayerType::Normal,
 			CMD_STOP => PlayerType::Operator,
 			CMD_HELP => PlayerType::Normal,
+			CMD_SETPASS => PlayerType::Normal,
 			_ => PlayerType::Moderator,
 		}
 	}
@@ -103,7 +153,7 @@ impl<'m> Command<'m> {
 				c("<message>"),
 				"&fSends a message as being from the server.".to_string(),
 			],
-			CMD_SET_PERM => vec![
+			CMD_SETPERM => vec![
 				c("<username> <permission level>"),
 				"&fSets a player's permission level.".to_string(),
 			],
@@ -119,6 +169,15 @@ impl<'m> Command<'m> {
 				c("[command]"),
 				"&fGets a list of commands or help about a command.".to_string(),
 			],
+			CMD_BAN => vec![
+				c("<username> [reason]"),
+				"&fBans a player from the server.".to_string(),
+			],
+			CMD_ALLOWENTRY => vec![
+				c("<username>"),
+				"&fAllows a player into the server.".to_string(),
+			],
+			CMD_SETPASS => vec![c("<new password>"), "&fUpdates your password.".to_string()],
 			_ => vec!["&eUnknown command!".to_string()],
 		}
 	}
