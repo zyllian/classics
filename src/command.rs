@@ -1,4 +1,11 @@
-use crate::player::PlayerType;
+use crate::{
+	packet::{server::ServerPacket, STRING_LENGTH},
+	player::PlayerType,
+	server::{
+		config::{ConfigCoordinatesWithOrientation, ServerProtectionMode},
+		ServerData,
+	},
+};
 
 const CMD_ME: &str = "me";
 const CMD_SAY: &str = "say";
@@ -223,5 +230,236 @@ impl<'m> Command<'m> {
 		*args = &args[end_index + extra..];
 
 		Ok(result)
+	}
+
+	/// processes the command >:3
+	pub fn process(self, data: &mut ServerData, own_id: i8) -> Vec<String> {
+		let mut messages = Vec::new();
+
+		let player = data
+			.players
+			.iter()
+			.find(|p| p.id == own_id)
+			.expect("missing player");
+
+		if self.perms_required() > player.permissions {
+			messages.push("&cPermissions do not allow you to use this command".to_string());
+			return messages;
+		}
+
+		match self {
+			Command::Me { action } => {
+				let message = format!(
+					"&f*{} {action}",
+					data.players
+						.iter()
+						.find(|p| p.id == own_id)
+						.expect("missing player")
+						.username
+				);
+				data.spread_packet(ServerPacket::Message {
+					player_id: own_id,
+					message,
+				});
+			}
+
+			Command::Say { message } => {
+				let message = format!("&d[SERVER] &f{message}");
+				data.spread_packet(ServerPacket::Message {
+					player_id: own_id,
+					message,
+				});
+			}
+
+			Command::SetPermissions {
+				player_username,
+				permissions,
+			} => {
+				let player_perms = player.permissions;
+				if player_username == player.username {
+					messages.push("&cCannot change your own permissions".to_string());
+					return messages;
+				} else if permissions >= player_perms {
+					messages
+						.push("&cCannot set permissions higher or equal to your own".to_string());
+					return messages;
+				}
+
+				let perm_string = serde_json::to_string(&permissions).expect("should never fail");
+
+				if let Some(current) = data.config.player_perms.get(player_username) {
+					if *current >= player_perms {
+						messages
+							.push("&cThis player outranks or is the same rank as you".to_string());
+						return messages;
+					}
+				}
+
+				data.config_needs_saving = true;
+
+				if matches!(permissions, PlayerType::Normal) {
+					data.config.player_perms.remove(player_username);
+				} else {
+					data.config
+						.player_perms
+						.insert(player_username.to_string(), permissions);
+				}
+				if let Some(p) = data
+					.players
+					.iter_mut()
+					.find(|p| p.username == player_username)
+				{
+					p.permissions = permissions;
+					p.packets_to_send.push(ServerPacket::UpdateUserType {
+						user_type: p.permissions,
+					});
+					p.packets_to_send.push(ServerPacket::Message {
+						player_id: p.id,
+						message: format!("Your permissions have been set to {perm_string}"),
+					});
+				}
+				messages.push(format!(
+					"Set permissions for {player_username} to {perm_string}"
+				));
+			}
+			Command::Kick { username, message } => {
+				let player_perms = player.permissions;
+
+				if let Some(other_player) = data.players.iter_mut().find(|p| p.username == username)
+				{
+					if player_perms <= other_player.permissions {
+						messages
+							.push("&cThis player outranks or is the same rank as you".to_string());
+						return messages;
+					}
+
+					other_player.should_be_kicked =
+						Some(format!("Kicked: {}", message.unwrap_or("<no message>")));
+					messages.push(format!("{} has been kicked", other_player.username));
+				} else {
+					messages.push("&cPlayer not connected to server!".to_string());
+				}
+			}
+
+			Command::Stop => {
+				data.stop = true;
+			}
+
+			Command::Help { command } => {
+				let msgs = if let Some(command) = command {
+					Command::help(command)
+				} else {
+					let mut msgs = vec!["Commands available to you:".to_string()];
+					let mut current_message = "&f".to_string();
+					for command in COMMANDS_LIST.iter() {
+						if Command::perms_required_by_name(command) > player.permissions {
+							continue;
+						}
+						if current_message.len() + 3 + command.len() > STRING_LENGTH {
+							msgs.push(format!("{current_message},"));
+							current_message = "&f".to_string();
+						}
+						if current_message.len() == 2 {
+							current_message = format!("{current_message}{command}");
+						} else {
+							current_message = format!("{current_message}, {command}");
+						}
+					}
+					if !current_message.is_empty() {
+						msgs.push(current_message);
+					}
+					msgs
+				};
+				for msg in msgs {
+					messages.push(msg);
+				}
+			}
+
+			Command::Ban {
+				player_username,
+				message,
+			} => {
+				let player_perms = player.permissions;
+				if let ServerProtectionMode::PasswordsByUser(passwords) =
+					&mut data.config.protection_mode
+				{
+					if !passwords.contains_key(player_username) {
+						messages.push("&cPlayer is already banned!".to_string());
+					} else {
+						passwords.remove(player_username);
+						data.config.player_perms.remove(player_username);
+						data.config_needs_saving = true;
+						if let Some(other_player) = data
+							.players
+							.iter_mut()
+							.find(|p| p.username == player_username)
+						{
+							if player_perms <= other_player.permissions {
+								messages.push(
+									"&cThis player outranks or is the same rank as you".to_string(),
+								);
+								return messages;
+							}
+
+							other_player.should_be_kicked =
+								Some(format!("Banned: {}", message.unwrap_or("<no_message>")));
+						}
+						messages.push(format!("{} has been banned", player_username));
+					}
+				} else {
+					messages.push("&cServer must be set to per-user passwords!".to_string());
+				}
+			}
+
+			Command::AllowEntry {
+				player_username,
+				password,
+			} => {
+				if let ServerProtectionMode::PasswordsByUser(passwords) =
+					&mut data.config.protection_mode
+				{
+					if passwords.contains_key(player_username) {
+						messages.push("&cPlayer is already allowed in the server!".to_string());
+					} else {
+						let password = password
+							.map(|p| p.to_string())
+							.unwrap_or_else(|| nanoid::nanoid!());
+						messages.push(format!("{player_username} is now allowed in the server."));
+						messages.push(format!("Password: {password}"));
+						passwords.insert(player_username.to_string(), password);
+						data.config_needs_saving = true;
+					}
+				} else {
+					messages.push("&cServer must be set to per-user passwords!".to_string());
+				}
+			}
+
+			Command::SetPass { password } => {
+				let username = player.username.clone();
+				if let ServerProtectionMode::PasswordsByUser(passwords) =
+					&mut data.config.protection_mode
+				{
+					passwords.insert(username, password.to_string());
+					data.config_needs_saving = true;
+					messages.push("Updated password!".to_string());
+				} else {
+					messages.push("&cServer must be set to per-user passwords!".to_string());
+				}
+			}
+
+			Command::SetLevelSpawn => {
+				data.config.spawn = Some(ConfigCoordinatesWithOrientation {
+					x: player.x.to_f32(),
+					y: player.y.to_f32(),
+					z: player.z.to_f32(),
+					yaw: player.yaw,
+					pitch: player.pitch,
+				});
+				data.config_needs_saving = true;
+				messages.push("Level spawn updated!".to_string());
+			}
+		}
+
+		messages
 	}
 }

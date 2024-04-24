@@ -47,6 +47,15 @@ pub struct ServerData {
 	pub stop: bool,
 }
 
+impl ServerData {
+	/// spreads a packet to all players
+	pub fn spread_packet(&mut self, packet: ServerPacket) {
+		for player in &mut self.players {
+			player.packets_to_send.push(packet.clone());
+		}
+	}
+}
+
 impl Server {
 	/// creates a new server with a generated level
 	pub async fn new(config: ServerConfig) -> std::io::Result<Self> {
