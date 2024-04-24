@@ -16,7 +16,7 @@ use crate::{
 		client::ClientPacket, server::ServerPacket, PacketWriter, ARRAY_LENGTH, STRING_LENGTH,
 	},
 	player::{Player, PlayerType},
-	server::config::ServerProtectionMode,
+	server::config::{ConfigCoordinatesWithOrientation, ServerProtectionMode},
 };
 
 use super::ServerData;
@@ -205,21 +205,15 @@ async fn handle_stream_inner(
 
 									let (spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch) =
 										if let Some(spawn) = &data.config.spawn {
-											(
-												spawn.coords.x,
-												spawn.coords.y,
-												spawn.coords.z,
-												spawn.yaw,
-												spawn.pitch,
-											)
+											(spawn.x, spawn.y, spawn.z, spawn.yaw, spawn.pitch)
 										} else {
-											(16, data.level.y_size / 2 + 2, 16, 0, 0)
+											(16.5, (data.level.y_size / 2 + 2) as f32, 16.5, 0, 0)
 										};
 
 									let (spawn_x, spawn_y, spawn_z) = (
-										f16::from_f32(spawn_x as f32 + 0.5),
-										f16::from_f32(spawn_y as f32),
-										f16::from_f32(spawn_z as f32 + 0.5),
+										f16::from_f32(spawn_x),
+										f16::from_f32(spawn_y),
+										f16::from_f32(spawn_z),
 									);
 
 									player.x = spawn_x;
@@ -337,6 +331,18 @@ async fn handle_stream_inner(
 									pitch,
 								} => {
 									let mut data = data.write().await;
+
+									let player = data
+										.players
+										.iter_mut()
+										.find(|p| p.id == *own_id)
+										.expect("missing player");
+									player.x = x;
+									player.y = y;
+									player.z = z;
+									player.yaw = yaw;
+									player.pitch = pitch;
+
 									spread_packet!(
 										data,
 										ServerPacket::SetPositionOrientation {
@@ -602,6 +608,18 @@ async fn handle_stream_inner(
 														} else {
 															msg!("&cServer must be set to per-user passwords!".to_string());
 														}
+													}
+
+													Command::SetLevelSpawn => {
+														data.config.spawn = Some(ConfigCoordinatesWithOrientation {
+															x: player.x.to_f32(),
+															y: player.y.to_f32(),
+															z: player.z.to_f32(),
+															yaw: player.yaw,
+															pitch: player.pitch
+														});
+														data.config_needs_saving = true;
+														msg!("Level spawn updated!".to_string());
 													}
 												}
 											}

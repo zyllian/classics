@@ -66,11 +66,14 @@ pub struct ConfigCoordinates {
 }
 
 /// coordinates stored in config including orientation
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConfigCoordinatesWithOrientation {
-	/// the inner coordinates
-	#[serde(flatten)]
-	pub coords: ConfigCoordinates,
+	/// the X coordinate
+	pub x: f32,
+	/// the Y coordinate
+	pub y: f32,
+	/// the Z coordinate
+	pub z: f32,
 	/// the orientation's yaw
 	pub yaw: u8,
 	/// the orientation's pitch

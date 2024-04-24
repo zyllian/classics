@@ -9,6 +9,7 @@ const CMD_HELP: &str = "help";
 const CMD_BAN: &str = "ban";
 const CMD_ALLOWENTRY: &str = "allowentry";
 const CMD_SETPASS: &str = "setpass";
+const CMD_SETLEVELSPAWN: &str = "setlevelspawn";
 
 /// list of commands available on the server
 pub const COMMANDS_LIST: &[&str] = &[
@@ -21,6 +22,7 @@ pub const COMMANDS_LIST: &[&str] = &[
 	CMD_BAN,
 	CMD_ALLOWENTRY,
 	CMD_SETPASS,
+	CMD_SETLEVELSPAWN,
 ];
 
 /// enum for possible commands
@@ -58,6 +60,8 @@ pub enum Command<'m> {
 	},
 	/// sets the current player's password
 	SetPass { password: &'m str },
+	/// sets the level spawn to the player's location
+	SetLevelSpawn,
 }
 
 impl<'m> Command<'m> {
@@ -105,6 +109,7 @@ impl<'m> Command<'m> {
 			CMD_SETPASS => Self::SetPass {
 				password: arguments.trim(),
 			},
+			CMD_SETLEVELSPAWN => Self::SetLevelSpawn,
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
@@ -121,6 +126,7 @@ impl<'m> Command<'m> {
 			Self::Ban { .. } => CMD_BAN,
 			Self::AllowEntry { .. } => CMD_ALLOWENTRY,
 			Self::SetPass { .. } => CMD_SETPASS,
+			Self::SetLevelSpawn => CMD_SETLEVELSPAWN,
 		}
 	}
 
@@ -178,6 +184,10 @@ impl<'m> Command<'m> {
 				"&fAllows a player into the server.".to_string(),
 			],
 			CMD_SETPASS => vec![c("<new password>"), "&fUpdates your password.".to_string()],
+			CMD_SETLEVELSPAWN => vec![
+				c(""),
+				"&fSets the level's spawn to your location.".to_string(),
+			],
 			_ => vec!["&eUnknown command!".to_string()],
 		}
 	}
