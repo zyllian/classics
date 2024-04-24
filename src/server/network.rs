@@ -176,11 +176,10 @@ async fn handle_stream_inner(
 										.copied()
 										.unwrap_or_default();
 
-									let player = Player {
+									let mut player = Player {
 										_addr: addr,
 										id: *own_id, // TODO: actually assign user ids
 										username,
-										// TODO: properly assign spawn stuff
 										x: zero,
 										y: zero,
 										z: zero,
@@ -203,23 +202,41 @@ async fn handle_stream_inner(
 										.extend(build_level_packets(&data.level).into_iter());
 
 									let username = player.username.clone();
-									data.players.push(player);
 
-									let (spawn_x, spawn_y, spawn_z) =
+									let (spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch) =
 										if let Some(spawn) = &data.config.spawn {
-											(spawn.x, spawn.y, spawn.z)
+											(
+												spawn.coords.x,
+												spawn.coords.y,
+												spawn.coords.z,
+												spawn.yaw,
+												spawn.pitch,
+											)
 										} else {
-											(16, data.level.y_size / 2 + 2, 16)
+											(16, data.level.y_size / 2 + 2, 16, 0, 0)
 										};
+
+									let (spawn_x, spawn_y, spawn_z) = (
+										f16::from_f32(spawn_x as f32 + 0.5),
+										f16::from_f32(spawn_y as f32),
+										f16::from_f32(spawn_z as f32 + 0.5),
+									);
+
+									player.x = spawn_x;
+									player.y = spawn_y;
+									player.z = spawn_z;
+									player.yaw = spawn_yaw;
+									player.pitch = spawn_pitch;
+									data.players.push(player);
 
 									let spawn_packet = ServerPacket::SpawnPlayer {
 										player_id: *own_id,
 										player_name: username.clone(),
-										x: f16::from_f32(spawn_x as f32 + 0.5),
-										y: f16::from_f32(spawn_y as f32),
-										z: f16::from_f32(spawn_z as f32 + 0.5),
-										yaw: 0,
-										pitch: 0,
+										x: spawn_x,
+										y: spawn_y,
+										z: spawn_z,
+										yaw: spawn_yaw,
+										pitch: spawn_pitch,
 									};
 									let message_packet = ServerPacket::Message {
 										player_id: *own_id,

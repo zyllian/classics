@@ -21,7 +21,7 @@ pub struct ServerConfig {
 	/// the level's size
 	pub level_size: ConfigCoordinates,
 	/// the level's spawn point
-	pub spawn: Option<ConfigCoordinates>,
+	pub spawn: Option<ConfigCoordinatesWithOrientation>,
 	/// the method to generate the server's level with
 	pub generation: LevelGeneration,
 	/// the server should auto save the world every X minutes, 0 to disable
@@ -63,6 +63,18 @@ pub struct ConfigCoordinates {
 	pub y: usize,
 	/// the Z coordinate
 	pub z: usize,
+}
+
+/// coordinates stored in config including orientation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfigCoordinatesWithOrientation {
+	/// the inner coordinates
+	#[serde(flatten)]
+	pub coords: ConfigCoordinates,
+	/// the orientation's yaw
+	pub yaw: u8,
+	/// the orientation's pitch
+	pub pitch: u8,
 }
 
 /// enum for the different kinds of server protection
