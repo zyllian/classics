@@ -322,6 +322,7 @@ impl<'m> Command<'m> {
 					"Set permissions for {player_username} to {perm_string}"
 				));
 			}
+
 			Command::Kick { username, message } => {
 				let player_perms = player.permissions;
 
