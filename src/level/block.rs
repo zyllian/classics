@@ -98,6 +98,43 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 		(0x2f, BlockInfo::new("bookshelf")),
 		(0x30, BlockInfo::new("mossy_cobblestone")),
 		(0x31, BlockInfo::new("obsidian")),
+		// CustomBlocks blocks
+		(
+			0x32,
+			BlockInfo::new("cobblestone_slab")
+				.block_type(BlockType::Slab)
+				.fallback(0x2c),
+		),
+		(
+			0x33,
+			BlockInfo::new("rope")
+				.block_type(BlockType::Rope)
+				.fallback(0x27),
+		),
+		(0x34, BlockInfo::new("sandstone").fallback(0x0c)),
+		(
+			0x35,
+			BlockInfo::new("snow")
+				.block_type(BlockType::NonSolid)
+				.fallback(0x00),
+		),
+		(
+			0x36,
+			BlockInfo::new("fire")
+				.block_type(BlockType::NonSolid)
+				.fallback(0x0a),
+		),
+		(0x37, BlockInfo::new("cloth_light_pink").fallback(0x21)),
+		(0x38, BlockInfo::new("cloth_forest_green").fallback(0x19)),
+		(0x39, BlockInfo::new("cloth_brown").fallback(0x03)),
+		(0x3a, BlockInfo::new("cloth_deep_blue").fallback(0x1d)),
+		(0x3b, BlockInfo::new("cloth_turquoise").fallback(0x1c)),
+		(0x3c, BlockInfo::new("ice").fallback(0x14)),
+		(0x3d, BlockInfo::new("ceramic_tile").fallback(0x2a)),
+		(0x3e, BlockInfo::new("magma").fallback(0x31)),
+		(0x3f, BlockInfo::new("pillar").fallback(0x24)),
+		(0x40, BlockInfo::new("crate").fallback(0x05)),
+		(0x41, BlockInfo::new("stone_brick").fallback(0x01)),
 	]
 	.into()
 });
@@ -121,6 +158,8 @@ pub struct BlockInfo {
 	pub place_permissions: PlayerType,
 	/// permissions needed to break this block (includes replacing fluids)
 	pub break_permissions: PlayerType,
+	/// the block used as fallback if the client doesn't support it
+	pub fallback: Option<u8>,
 }
 
 impl BlockInfo {
@@ -131,6 +170,7 @@ impl BlockInfo {
 			block_type: BlockType::Solid,
 			place_permissions: PlayerType::Normal,
 			break_permissions: PlayerType::Normal,
+			fallback: None,
 		}
 	}
 
@@ -144,6 +184,13 @@ impl BlockInfo {
 	pub const fn perm(mut self, place: PlayerType, brk: PlayerType) -> Self {
 		self.place_permissions = place;
 		self.break_permissions = brk;
+		self
+	}
+
+	/// sets the block's fallback block
+	pub const fn fallback(mut self, fallback: u8) -> Self {
+		assert!(fallback <= 0x31, "fallback must be under 0x31!");
+		self.fallback = Some(fallback);
 		self
 	}
 }
@@ -164,6 +211,8 @@ pub enum BlockType {
 	},
 	/// fluid which is stationary
 	FluidStationary { moving: u8 },
+	/// a block which is climbable like the rope block
+	Rope,
 }
 
 impl BlockType {

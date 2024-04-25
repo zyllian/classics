@@ -196,6 +196,7 @@ impl ExtBitmask {
 	fn info(self) -> Option<ExtInfo> {
 		// TODO: add entries as extensions are supported
 		Some(match self {
+			Self::CustomBlocks => ExtInfo::new("CustomBlocks".to_string(), 1, Self::CustomBlocks),
 			// this isn't actually used by the server at all, but it technically sort of implements it
 			Self::HeldBlock => ExtInfo::new("HeldBlock".to_string(), 1, Self::HeldBlock),
 			Self::EmoteFix => ExtInfo::new("EmoteFix".to_string(), 1, Self::EmoteFix),
