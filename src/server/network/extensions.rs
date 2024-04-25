@@ -1,6 +1,7 @@
 use tokio::net::TcpStream;
 
 use crate::{
+	error::GeneralError,
 	level::block::CUSTOM_BLOCKS_SUPPORT_LEVEL,
 	packet::{
 		client::ClientPacket, client_extended::ExtendedClientPacket, server::ServerPacket,
@@ -10,7 +11,9 @@ use crate::{
 
 use super::{next_packet, write_packets};
 
-pub async fn get_supported_extensions(stream: &mut TcpStream) -> std::io::Result<(ExtBitmask, u8)> {
+pub async fn get_supported_extensions(
+	stream: &mut TcpStream,
+) -> Result<(ExtBitmask, u8), GeneralError> {
 	let extensions = ExtBitmask::all().all_contained_info();
 
 	write_packets(
@@ -39,7 +42,9 @@ pub async fn get_supported_extensions(stream: &mut TcpStream) -> std::io::Result
 			{
 				client_extensions.push(ExtInfo::new(ext_name, version, ExtBitmask::none()));
 			} else {
-				panic!("expected ExtEntry packet!");
+				return Err(GeneralError::Custom(
+					"expected ExtEntry packet!".to_string(),
+				));
 			}
 		}
 		client_extensions.retain_mut(|cext| {
@@ -76,7 +81,9 @@ pub async fn get_supported_extensions(stream: &mut TcpStream) -> std::io::Result
 		{
 			support_level.min(CUSTOM_BLOCKS_SUPPORT_LEVEL)
 		} else {
-			panic!("expected CustomBlockSupportLevel packet!");
+			return Err(GeneralError::Custom(
+				"expected CustomBlockSupportLevel packet!".to_string(),
+			));
 		}
 	} else {
 		0

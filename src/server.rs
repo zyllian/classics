@@ -6,6 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use tokio::{net::TcpListener, sync::RwLock};
 
 use crate::{
+	error::GeneralError,
 	level::{
 		block::{BlockType, BLOCK_INFO},
 		BlockUpdate, Level,
@@ -58,7 +59,7 @@ impl ServerData {
 
 impl Server {
 	/// creates a new server with a generated level
-	pub async fn new(config: ServerConfig) -> std::io::Result<Self> {
+	pub async fn new(config: ServerConfig) -> Result<Self, GeneralError> {
 		let levels_path = PathBuf::from(LEVELS_PATH);
 		if !levels_path.exists() {
 			std::fs::create_dir_all(&levels_path)?;
@@ -84,7 +85,7 @@ impl Server {
 	}
 
 	/// creates a new server with the given level
-	pub async fn new_with_level(config: ServerConfig, level: Level) -> std::io::Result<Self> {
+	pub async fn new_with_level(config: ServerConfig, level: Level) -> Result<Self, GeneralError> {
 		let listener = TcpListener::bind("0.0.0.0:25565").await?;
 
 		Ok(Self {
@@ -101,11 +102,15 @@ impl Server {
 	}
 
 	/// starts the server
-	pub async fn run(self) -> std::io::Result<()> {
+	pub async fn run(self) -> Result<(), GeneralError> {
 		let data = self.data.clone();
 		tokio::spawn(async move {
 			loop {
-				let (stream, addr) = self.listener.accept().await.unwrap();
+				let (stream, addr) = self
+					.listener
+					.accept()
+					.await
+					.expect("failed to accept listener!");
 				println!("connection from {addr}");
 				let data = data.clone();
 				tokio::spawn(async move {
@@ -113,7 +118,7 @@ impl Server {
 				});
 			}
 		});
-		handle_ticks(self.data.clone()).await;
+		handle_ticks(self.data.clone()).await?;
 		tokio::time::sleep(std::time::Duration::from_millis(1)).await;
 
 		// TODO: cancel pending tasks/send out "Server is stopping" messages *here* instead of elsewhere
@@ -129,7 +134,7 @@ impl Server {
 }
 
 /// function to tick the server
-async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
+async fn handle_ticks(data: Arc<RwLock<ServerData>>) -> Result<(), GeneralError> {
 	let mut current_tick = 0;
 	let mut last_auto_save = std::time::Instant::now();
 	loop {
@@ -138,12 +143,7 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 			tick(&mut data, current_tick);
 
 			if data.config_needs_saving {
-				std::fs::write(
-					CONFIG_FILE,
-					serde_json::to_string_pretty(&data.config)
-						.expect("failed to serialize default config"),
-				)
-				.expect("failed to save config file");
+				tokio::fs::write(CONFIG_FILE, serde_json::to_string_pretty(&data.config)?).await?;
 				data.config_needs_saving = false;
 			}
 
@@ -164,8 +164,7 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 				data.level.save_now = false;
 				data.level
 					.save(PathBuf::from(LEVELS_PATH).join(&data.config.level_name))
-					.await
-					.expect("failed to autosave level");
+					.await?;
 				last_auto_save = std::time::Instant::now();
 
 				let packet = ServerPacket::Message {
@@ -181,6 +180,8 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 		current_tick = current_tick.wrapping_add(1);
 		tokio::time::sleep(TICK_DURATION).await;
 	}
+
+	Ok(())
 }
 
 /// function which ticks the server once

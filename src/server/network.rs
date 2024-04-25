@@ -13,6 +13,7 @@ use tokio::{
 
 use crate::{
 	command::Command,
+	error::GeneralError,
 	level::{block::BLOCK_INFO, BlockUpdate, Level},
 	packet::{
 		client::ClientPacket, server::ServerPacket, ExtBitmask, PacketWriter, ARRAY_LENGTH,
@@ -24,7 +25,7 @@ use crate::{
 
 use super::ServerData;
 
-async fn next_packet(stream: &mut TcpStream) -> std::io::Result<Option<ClientPacket>> {
+async fn next_packet(stream: &mut TcpStream) -> Result<Option<ClientPacket>, GeneralError> {
 	let id = stream.read_u8().await?;
 
 	if let Some(size) = ClientPacket::get_size_from_id(id) {
@@ -37,7 +38,7 @@ async fn next_packet(stream: &mut TcpStream) -> std::io::Result<Option<ClientPac
 	}
 }
 
-async fn write_packets<I>(stream: &mut TcpStream, packets: I) -> std::io::Result<()>
+async fn write_packets<I>(stream: &mut TcpStream, packets: I) -> Result<(), GeneralError>
 where
 	I: Iterator<Item = ServerPacket>,
 {
@@ -84,9 +85,12 @@ pub(super) async fn handle_stream(
 	let r = handle_stream_inner(&mut stream, addr, data.clone(), &mut own_id).await;
 
 	println!("{addr} is no longer connected");
-	match r {
-		Ok(disconnect_reason) => {
-			if let Some(disconnect_reason) = disconnect_reason {
+	if let Err(e) = r {
+		match e {
+			// unexpected eof is expected when clients disconnect
+			GeneralError::Io(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {}
+			GeneralError::Custom(disconnect_reason) => {
+				println!("disconnecting <{addr}> for reason: {disconnect_reason}");
 				let packet = ServerPacket::DisconnectPlayer { disconnect_reason };
 				let writer = PacketWriter::default().write_u8(packet.get_id());
 				let msg = packet.write(writer).into_raw_packet();
@@ -94,11 +98,8 @@ pub(super) async fn handle_stream(
 					eprintln!("Failed to write disconnect packet for <{addr}>: {e}");
 				}
 			}
-		}
-		Err(e) => {
-			// unexpected eof is expected when clients disconnect
-			if e.kind() != std::io::ErrorKind::UnexpectedEof {
-				eprintln!("Error in stream handler for <{addr}>: {e}")
+			_ => {
+				eprintln!("Error in stream handler for <{addr}>: {e:?}");
 			}
 		}
 	}
@@ -129,7 +130,7 @@ async fn handle_stream_inner(
 	addr: SocketAddr,
 	data: Arc<RwLock<ServerData>>,
 	own_id: &mut i8,
-) -> std::io::Result<Option<String>> {
+) -> Result<(), GeneralError> {
 	let mut reply_queue: Vec<ServerPacket> = Vec::new();
 
 	macro_rules! msg {
@@ -144,7 +145,7 @@ async fn handle_stream_inner(
 	loop {
 		if let Some(player) = data.read().await.players.iter().find(|p| p.id == *own_id) {
 			if let Some(msg) = &player.should_be_kicked {
-				return Ok(Some(format!("Kicked: {msg}")));
+				return Err(GeneralError::Custom(msg.clone()));
 			}
 		}
 
@@ -157,7 +158,7 @@ async fn handle_stream_inner(
 					magic_number,
 				} => {
 					if protocol_version != 0x07 {
-						return Ok(Some("Unknown protocol version! Please connect with a classic 0.30-compatible client.".to_string()));
+						return Err(GeneralError::Custom("Unknown protocol version! Please connect with a classic 0.30-compatible client.".to_string()));
 					}
 
 					let zero = f16::from_f32(0.0);
@@ -168,7 +169,9 @@ async fn handle_stream_inner(
 						ServerProtectionMode::None => {}
 						ServerProtectionMode::Password(password) => {
 							if verification_key != *password {
-								return Ok(Some("Incorrect password!".to_string()));
+								return Err(GeneralError::Custom(
+									"Incorrect password!".to_string(),
+								));
 							}
 						}
 						ServerProtectionMode::PasswordsByUser(passwords) => {
@@ -177,14 +180,18 @@ async fn handle_stream_inner(
 								.map(|password| verification_key == *password)
 								.unwrap_or_default()
 							{
-								return Ok(Some("Incorrect password!".to_string()));
+								return Err(GeneralError::Custom(
+									"Incorrect password!".to_string(),
+								));
 							}
 						}
 					}
 
 					for player in &data.players {
 						if player.username == username {
-							return Ok(Some("Player with username already connected!".to_string()));
+							return Err(GeneralError::Custom(
+								"Player with username already connected!".to_string(),
+							));
 						}
 					}
 
@@ -232,7 +239,7 @@ async fn handle_stream_inner(
 
 					println!("generating level packets");
 					reply_queue.extend(
-						build_level_packets(&data.level, extensions, custom_blocks_support_level)
+						build_level_packets(&data.level, extensions, custom_blocks_support_level)?
 							.into_iter(),
 					);
 
@@ -321,7 +328,9 @@ async fn handle_stream_inner(
 						|| y.clamp(0, data.level.y_size as i16 - 1) != y
 						|| z.clamp(0, data.level.z_size as i16 - 1) != z
 					{
-						return Ok(Some("Attempt to place block out of bounds".to_string()));
+						return Err(GeneralError::Custom(
+							"Attempt to place block out of bounds".to_string(),
+						));
 					}
 
 					let new_block_info = BLOCK_INFO.get(&block_type);
@@ -429,7 +438,7 @@ async fn handle_stream_inner(
 
 				ClientPacket::Extended(_packet) => {
 					// extended packets!
-					return Ok(Some(
+					return Err(GeneralError::Custom(
 						"Unexpected extension packet in this phase!".to_string(),
 					));
 					// match packet {
@@ -468,7 +477,7 @@ fn build_level_packets(
 	level: &Level,
 	extensions: ExtBitmask,
 	custom_blocks_support_level: u8,
-) -> Vec<ServerPacket> {
+) -> Result<Vec<ServerPacket>, GeneralError> {
 	let mut packets: Vec<ServerPacket> = vec![ServerPacket::LevelInitialize {}];
 
 	let custom_blocks =
@@ -490,8 +499,8 @@ fn build_level_packets(
 	}));
 
 	let mut e = GzEncoder::new(Vec::new(), Compression::best());
-	e.write_all(&data).expect("failed to gzip level data");
-	let data = e.finish().expect("failed to gzip level data");
+	e.write_all(&data)?;
+	let data = e.finish()?;
 	let data_len = data.len();
 	let mut total_bytes = 0;
 
@@ -513,5 +522,5 @@ fn build_level_packets(
 		z_size: level.z_size as i16,
 	});
 
-	packets
+	Ok(packets)
 }

@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{packet::server::ServerPacket, util::neighbors};
+use crate::{error::GeneralError, packet::server::ServerPacket, util::neighbors};
 
 use self::block::BLOCK_INFO;
 
@@ -108,7 +108,7 @@ impl Level {
 	}
 
 	/// saves the level
-	pub async fn save<P>(&self, path: P) -> std::io::Result<()>
+	pub async fn save<P>(&self, path: P) -> Result<(), GeneralError>
 	where
 		P: AsRef<Path>,
 	{
@@ -116,29 +116,22 @@ impl Level {
 		tokio::fs::create_dir_all(path).await?;
 		tokio::fs::write(
 			path.join(LEVEL_INFO_PATH),
-			serde_json::to_string_pretty(self).unwrap(),
+			serde_json::to_string_pretty(self)?,
 		)
 		.await?;
 		let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
-		encoder
-			.write_all(&self.blocks)
-			.expect("failed to write blocks");
-		tokio::fs::write(
-			path.join(LEVEL_DATA_PATH),
-			encoder.finish().expect("failed to encode blocks"),
-		)
-		.await
+		encoder.write_all(&self.blocks)?;
+		Ok(tokio::fs::write(path.join(LEVEL_DATA_PATH), encoder.finish()?).await?)
 	}
 
 	/// loads the level
-	pub async fn load<P>(path: P) -> std::io::Result<Self>
+	pub async fn load<P>(path: P) -> Result<Self, GeneralError>
 	where
 		P: AsRef<Path>,
 	{
 		let path = path.as_ref();
 		let mut info: Self =
-			serde_json::from_str(&tokio::fs::read_to_string(path.join(LEVEL_INFO_PATH)).await?)
-				.expect("failed to deserialize level info");
+			serde_json::from_str(&tokio::fs::read_to_string(path.join(LEVEL_INFO_PATH)).await?)?;
 		let blocks_data = tokio::fs::read(path.join(LEVEL_DATA_PATH)).await?;
 		let mut decoder = flate2::read::GzDecoder::new(blocks_data.as_slice());
 		decoder.read_to_end(&mut info.blocks)?;
