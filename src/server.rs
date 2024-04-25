@@ -167,6 +167,14 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 					.await
 					.expect("failed to autosave level");
 				last_auto_save = std::time::Instant::now();
+
+				let packet = ServerPacket::Message {
+					player_id: -1,
+					message: "Server has saved!".to_string(),
+				};
+				for player in &mut data.players {
+					player.packets_to_send.push(packet.clone());
+				}
 			}
 		}
 
