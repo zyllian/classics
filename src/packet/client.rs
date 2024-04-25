@@ -27,8 +27,8 @@ pub enum ClientPacket {
 	},
 	/// sent to update the player's current position and orientation with the server
 	PositionOrientation {
-		/// should always be 0xff (-1), referring to the player who sent it
-		_player_id: i8,
+		/// if the HeldBlock extension is supported, this should contain the block the player is currently holding
+		_player_id_or_held_block: i8,
 		x: f16,
 		y: f16,
 		z: f16,
@@ -78,7 +78,7 @@ impl ClientPacket {
 				block_type: buf.try_get_u8().ok()?,
 			},
 			0x08 => Self::PositionOrientation {
-				_player_id: buf.try_get_i8().ok()?,
+				_player_id_or_held_block: buf.try_get_i8().ok()?,
 				x: buf.try_get_f16().ok()?,
 				y: buf.try_get_f16().ok()?,
 				z: buf.try_get_f16().ok()?,

@@ -99,6 +99,8 @@ pub enum ServerPacket {
 	ExtInfo {},
 	/// packet to send info about an extension on the server
 	ExtEntry { ext_name: String, version: i32 },
+	/// packet to set a player's currently held block
+	HoldThis { block: u8, prevent_change: bool },
 	/// informs the client that it should update the current weather
 	EnvWeatherType { weather_type: WeatherType },
 }
@@ -125,6 +127,7 @@ impl ServerPacket {
 
 			Self::ExtInfo {} => 0x10,
 			Self::ExtEntry { .. } => 0x11,
+			Self::HoldThis { .. } => 0x14,
 			Self::EnvWeatherType { .. } => 0x1f,
 		}
 	}
@@ -242,6 +245,10 @@ impl ServerPacket {
 			Self::ExtEntry { ext_name, version } => {
 				writer.write_string(ext_name).write_i32(*version)
 			}
+			Self::HoldThis {
+				block,
+				prevent_change,
+			} => writer.write_u8(*block).write_bool(*prevent_change),
 			Self::EnvWeatherType { weather_type } => writer.write_u8(weather_type.into()),
 		}
 	}

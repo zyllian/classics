@@ -85,6 +85,11 @@ impl PacketWriter {
 		self.write_u8(b as u8)
 	}
 
+	/// writes a bool to the packet
+	fn write_bool(self, b: bool) -> Self {
+		self.write_u8(if b { 1 } else { 0 })
+	}
+
 	/// writes a u16 to the packet
 	fn write_u16(self, sh: u16) -> Self {
 		let mut s = self;
@@ -191,6 +196,11 @@ impl ExtBitmask {
 	fn info(self) -> Option<ExtInfo> {
 		// TODO: add entries as extensions are supported
 		Some(match self {
+			// this isn't actually used by the server at all, but it technically sort of implements it
+			Self::HeldBlock => ExtInfo::new("HeldBlock".to_string(), 1, Self::HeldBlock),
+			Self::EmoteFix => ExtInfo::new("EmoteFix".to_string(), 1, Self::EmoteFix),
+			// TODO: render CP437 properly in server output
+			Self::FullCP437 => ExtInfo::new("FullCP437".to_string(), 1, Self::FullCP437),
 			Self::EnvWeatherType => {
 				ExtInfo::new("EnvWeatherType".to_string(), 1, Self::EnvWeatherType)
 			}

@@ -328,7 +328,7 @@ async fn handle_stream_inner(
 					}
 				}
 				ClientPacket::PositionOrientation {
-					_player_id: _,
+					_player_id_or_held_block: _,
 					x,
 					y,
 					z,
