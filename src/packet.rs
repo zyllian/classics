@@ -205,6 +205,9 @@ impl ExtBitmask {
 			Self::EnvWeatherType => {
 				ExtInfo::new("EnvWeatherType".to_string(), 1, Self::EnvWeatherType)
 			}
+			Self::InventoryOrder => {
+				ExtInfo::new("InventoryOrder".to_string(), 1, Self::InventoryOrder)
+			}
 			_ => return None,
 		})
 	}

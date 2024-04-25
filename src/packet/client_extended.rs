@@ -10,6 +10,8 @@ pub enum ExtendedClientPacket {
 	},
 	/// packet containing a supported extension name and version
 	ExtEntry { ext_name: String, version: i32 },
+	/// packet containing the support level for custom blocks from the client
+	CustomBlockSupportLevel { support_level: u8 },
 }
 
 impl ExtendedClientPacket {
@@ -18,6 +20,7 @@ impl ExtendedClientPacket {
 		Some(match id {
 			0x10 => STRING_LENGTH + 2,
 			0x11 => STRING_LENGTH + 4,
+			0x13 => 1,
 			_ => return None,
 		})
 	}
@@ -35,6 +38,9 @@ impl ExtendedClientPacket {
 			0x11 => Self::ExtEntry {
 				ext_name: buf.try_get_string().ok()?,
 				version: buf.try_get_i32().ok()?,
+			},
+			0x13 => Self::CustomBlockSupportLevel {
+				support_level: buf.try_get_u8().ok()?,
 			},
 			_ => return None,
 		})

@@ -1,13 +1,16 @@
 use tokio::net::TcpStream;
 
-use crate::packet::{
-	client::ClientPacket, client_extended::ExtendedClientPacket, server::ServerPacket, ExtBitmask,
-	ExtInfo,
+use crate::{
+	level::block::CUSTOM_BLOCKS_SUPPORT_LEVEL,
+	packet::{
+		client::ClientPacket, client_extended::ExtendedClientPacket, server::ServerPacket,
+		ExtBitmask, ExtInfo,
+	},
 };
 
 use super::{next_packet, write_packets};
 
-pub async fn get_supported_extensions(stream: &mut TcpStream) -> std::io::Result<ExtBitmask> {
+pub async fn get_supported_extensions(stream: &mut TcpStream) -> std::io::Result<(ExtBitmask, u8)> {
 	let extensions = ExtBitmask::all().all_contained_info();
 
 	write_packets(
@@ -61,5 +64,23 @@ pub async fn get_supported_extensions(stream: &mut TcpStream) -> std::io::Result
 		.into_iter()
 		.fold(ExtBitmask::none(), |acc, ext| acc | ext.bitmask);
 
-	Ok(final_bitmask)
+	let custom_blocks_support_level = if final_bitmask.contains(ExtBitmask::CustomBlocks) {
+		write_packets(
+			stream,
+			Some(ServerPacket::CustomBlockSupportLevel).into_iter(),
+		)
+		.await?;
+		if let Some(ClientPacket::Extended(ExtendedClientPacket::CustomBlockSupportLevel {
+			support_level,
+		})) = next_packet(stream).await?
+		{
+			support_level.min(CUSTOM_BLOCKS_SUPPORT_LEVEL)
+		} else {
+			panic!("expected CustomBlockSupportLevel packet!");
+		}
+	} else {
+		0
+	};
+
+	Ok((final_bitmask, custom_blocks_support_level))
 }

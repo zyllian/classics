@@ -1,6 +1,10 @@
 use half::f16;
 
-use crate::{level::WeatherType, player::PlayerType, SERVER_NAME};
+use crate::{
+	level::{block::CUSTOM_BLOCKS_SUPPORT_LEVEL, WeatherType},
+	player::PlayerType,
+	SERVER_NAME,
+};
 
 use super::ExtBitmask;
 
@@ -17,9 +21,9 @@ pub enum ServerPacket {
 	},
 	/// since clients do not notify the server when leaving, the ping packet is used to check if the client is still connected
 	/// TODO: implement pinging? classicube works fine without it
-	Ping {},
+	Ping,
 	/// informs clients that there is incoming level data
-	LevelInitialize {},
+	LevelInitialize,
 	/// packet to send a chunk (not minecraft chunk) of gzipped level data
 	LevelDataChunk {
 		chunk_length: i16,
@@ -96,13 +100,17 @@ pub enum ServerPacket {
 
 	// extension packets
 	/// packet to send info about the server's extensions
-	ExtInfo {},
+	ExtInfo,
 	/// packet to send info about an extension on the server
 	ExtEntry { ext_name: String, version: i32 },
+	/// packet to send the server's supported custom blocks
+	CustomBlockSupportLevel,
 	/// packet to set a player's currently held block
 	HoldThis { block: u8, prevent_change: bool },
 	/// informs the client that it should update the current weather
 	EnvWeatherType { weather_type: WeatherType },
+	/// packet to set a block's position in the client's inventory
+	SetInventoryOrder { order: u8, block: u8 },
 }
 
 impl ServerPacket {
@@ -110,8 +118,8 @@ impl ServerPacket {
 	pub fn get_id(&self) -> u8 {
 		match self {
 			Self::ServerIdentification { .. } => 0x00,
-			Self::Ping {} => 0x01,
-			Self::LevelInitialize {} => 0x02,
+			Self::Ping => 0x01,
+			Self::LevelInitialize => 0x02,
 			Self::LevelDataChunk { .. } => 0x03,
 			Self::LevelFinalize { .. } => 0x04,
 			Self::SetBlock { .. } => 0x06,
@@ -125,10 +133,12 @@ impl ServerPacket {
 			Self::DisconnectPlayer { .. } => 0x0e,
 			Self::UpdateUserType { .. } => 0x0f,
 
-			Self::ExtInfo {} => 0x10,
+			Self::ExtInfo => 0x10,
 			Self::ExtEntry { .. } => 0x11,
+			Self::CustomBlockSupportLevel { .. } => 0x13,
 			Self::HoldThis { .. } => 0x14,
 			Self::EnvWeatherType { .. } => 0x1f,
+			Self::SetInventoryOrder { .. } => 0x2c,
 		}
 	}
 
@@ -145,8 +155,8 @@ impl ServerPacket {
 				.write_string(server_name)
 				.write_string(server_motd)
 				.write_u8(user_type.into()),
-			Self::Ping {} => writer,
-			Self::LevelInitialize {} => writer,
+			Self::Ping => writer,
+			Self::LevelInitialize => writer,
 			Self::LevelDataChunk {
 				chunk_length,
 				chunk_data,
@@ -239,17 +249,19 @@ impl ServerPacket {
 			Self::DisconnectPlayer { disconnect_reason } => writer.write_string(disconnect_reason),
 			Self::UpdateUserType { user_type } => writer.write_u8(user_type.into()),
 
-			Self::ExtInfo {} => writer
+			Self::ExtInfo => writer
 				.write_string(SERVER_NAME)
 				.write_i16(ExtBitmask::all().all_contained_info().len() as i16),
 			Self::ExtEntry { ext_name, version } => {
 				writer.write_string(ext_name).write_i32(*version)
 			}
+			Self::CustomBlockSupportLevel => writer.write_u8(CUSTOM_BLOCKS_SUPPORT_LEVEL),
 			Self::HoldThis {
 				block,
 				prevent_change,
 			} => writer.write_u8(*block).write_bool(*prevent_change),
 			Self::EnvWeatherType { weather_type } => writer.write_u8(weather_type.into()),
+			Self::SetInventoryOrder { order, block } => writer.write_u8(*order).write_u8(*block),
 		}
 	}
 

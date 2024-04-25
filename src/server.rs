@@ -1,5 +1,5 @@
 pub mod config;
-mod network;
+pub(crate) mod network;
 
 use std::{path::PathBuf, sync::Arc};
 

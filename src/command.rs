@@ -1,8 +1,9 @@
 use crate::{
-	packet::{server::ServerPacket, STRING_LENGTH},
+	packet::{server::ServerPacket, ExtBitmask, STRING_LENGTH},
 	player::PlayerType,
 	server::{
 		config::{ConfigCoordinatesWithOrientation, ServerProtectionMode},
+		network::set_player_inventory,
 		ServerData,
 	},
 };
@@ -87,7 +88,10 @@ impl<'m> Command<'m> {
 			CMD_SAY => Self::Say { message: arguments },
 			CMD_SETPERM => Self::SetPermissions {
 				player_username: Self::next_string(&mut arguments)?,
-				permissions: arguments.trim().try_into()?,
+				permissions: arguments
+					.trim()
+					.try_into()
+					.map_err(|_| format!("&cUnknown permissions type: {arguments}"))?,
 			},
 			CMD_KICK => {
 				let username = Self::next_string(&mut arguments)?;
@@ -297,7 +301,7 @@ impl<'m> Command<'m> {
 					return messages;
 				}
 
-				let perm_string = serde_json::to_string(&permissions).expect("should never fail");
+				let perm_string: &'static str = permissions.into();
 
 				if let Some(current) = data.config.player_perms.get(player_username) {
 					if *current >= player_perms {
@@ -329,6 +333,15 @@ impl<'m> Command<'m> {
 						player_id: p.id,
 						message: format!("Your permissions have been set to {perm_string}"),
 					});
+
+					if p.extensions.contains(ExtBitmask::InventoryOrder) {
+						set_player_inventory(
+							p.permissions,
+							p.extensions,
+							p.custom_blocks_support_level,
+							&mut p.packets_to_send,
+						);
+					}
 				}
 				messages.push(format!(
 					"Set permissions for {player_username} to {perm_string}"

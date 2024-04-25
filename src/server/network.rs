@@ -18,7 +18,7 @@ use crate::{
 		client::ClientPacket, server::ServerPacket, ExtBitmask, PacketWriter, ARRAY_LENGTH,
 		EXTENSION_MAGIC_NUMBER,
 	},
-	player::Player,
+	player::{Player, PlayerType},
 	server::config::ServerProtectionMode,
 };
 
@@ -47,6 +47,32 @@ where
 		stream.write_all(&msg).await?;
 	}
 	Ok(())
+}
+
+/// gets the packets needed to update a player's inventory
+pub(crate) fn set_player_inventory(
+	perms: PlayerType,
+	extensions: ExtBitmask,
+	custom_blocks_support_level: u8,
+	packets_queue: &mut Vec<ServerPacket>,
+) {
+	let custom_blocks =
+		extensions.contains(ExtBitmask::CustomBlocks) && custom_blocks_support_level == 1;
+	assert!(
+		custom_blocks_support_level <= 1,
+		"support not implemented for additional custom block levels"
+	);
+	for (id, info) in &*BLOCK_INFO {
+		if !custom_blocks && *id > 49 {
+			break;
+		}
+		let block = if info.place_permissions <= perms {
+			*id
+		} else {
+			0
+		};
+		packets_queue.push(ServerPacket::SetInventoryOrder { order: *id, block });
+	}
 }
 
 pub(super) async fn handle_stream(
@@ -185,13 +211,17 @@ async fn handle_stream_inner(
 						pitch: 0,
 						permissions: player_type,
 						extensions: ExtBitmask::none(),
+						custom_blocks_support_level: 0,
 						packets_to_send: Vec::new(),
 						should_be_kicked: None,
 					};
 
 					if magic_number == EXTENSION_MAGIC_NUMBER {
-						player.extensions = extensions::get_supported_extensions(stream).await?;
+						(player.extensions, player.custom_blocks_support_level) =
+							extensions::get_supported_extensions(stream).await?;
 					}
+					let extensions = player.extensions;
+					let custom_blocks_support_level = player.custom_blocks_support_level;
 
 					reply_queue.push(ServerPacket::ServerIdentification {
 						protocol_version: 0x07,
@@ -201,9 +231,12 @@ async fn handle_stream_inner(
 					});
 
 					println!("generating level packets");
-					reply_queue.extend(build_level_packets(&data.level).into_iter());
+					reply_queue.extend(
+						build_level_packets(&data.level, extensions, custom_blocks_support_level)
+							.into_iter(),
+					);
 
-					if player.extensions.contains(ExtBitmask::EnvWeatherType) {
+					if extensions.contains(ExtBitmask::EnvWeatherType) {
 						reply_queue.push(ServerPacket::EnvWeatherType {
 							weather_type: data.level.weather,
 						});
@@ -263,6 +296,15 @@ async fn handle_stream_inner(
 					reply_queue.push(ServerPacket::UpdateUserType {
 						user_type: player_type,
 					});
+
+					if extensions.contains(ExtBitmask::InventoryOrder) {
+						set_player_inventory(
+							player_type,
+							extensions,
+							custom_blocks_support_level,
+							&mut reply_queue,
+						);
+					}
 				}
 				ClientPacket::SetBlock {
 					x,
@@ -422,14 +464,30 @@ async fn handle_stream_inner(
 }
 
 /// helper to put together packets that need to be sent to send full level data for the given level
-fn build_level_packets(level: &Level) -> Vec<ServerPacket> {
+fn build_level_packets(
+	level: &Level,
+	extensions: ExtBitmask,
+	custom_blocks_support_level: u8,
+) -> Vec<ServerPacket> {
 	let mut packets: Vec<ServerPacket> = vec![ServerPacket::LevelInitialize {}];
 
-	// TODO: the type conversions in here may be weird idk
+	let custom_blocks =
+		extensions.contains(ExtBitmask::CustomBlocks) && custom_blocks_support_level >= 1;
+
 	let volume = level.x_size * level.y_size * level.z_size;
 	let mut data = Vec::with_capacity(volume + 4);
 	data.extend_from_slice(&(volume as i32).to_be_bytes());
-	data.extend_from_slice(&level.blocks);
+	data.extend(level.blocks.iter().copied().map(|b| {
+		if custom_blocks || b <= 49 {
+			b
+		} else {
+			BLOCK_INFO
+				.get(&b)
+				.expect("missing block")
+				.fallback
+				.unwrap_or_default()
+		}
+	}));
 
 	let mut e = GzEncoder::new(Vec::new(), Compression::best());
 	e.write_all(&data).expect("failed to gzip level data");

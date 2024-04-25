@@ -4,6 +4,9 @@ use internment::Intern;
 
 use crate::player::PlayerType;
 
+/// the level of custom blocks supported by the server
+pub const CUSTOM_BLOCKS_SUPPORT_LEVEL: u8 = 1;
+
 /// information about all blocks implemented
 pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 	[
@@ -19,7 +22,7 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 		),
 		(
 			0x07,
-			BlockInfo::new("bedrock").perm(PlayerType::Operator, PlayerType::Operator),
+			BlockInfo::new("bedrock").perm(PlayerType::Moderator, PlayerType::Moderator),
 		),
 		(
 			0x08,
@@ -28,13 +31,13 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 					stationary: 0x09,
 					ticks_to_spread: 3,
 				})
-				.perm(PlayerType::Operator, PlayerType::Normal),
+				.perm(PlayerType::Moderator, PlayerType::Normal),
 		),
 		(
 			0x09,
 			BlockInfo::new("water_stationary")
 				.block_type(BlockType::FluidStationary { moving: 0x08 })
-				.perm(PlayerType::Operator, PlayerType::Normal),
+				.perm(PlayerType::Moderator, PlayerType::Normal),
 		),
 		(
 			0x0a,
@@ -43,13 +46,13 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 					stationary: 0x0b,
 					ticks_to_spread: 15,
 				})
-				.perm(PlayerType::Operator, PlayerType::Normal),
+				.perm(PlayerType::Moderator, PlayerType::Normal),
 		),
 		(
 			0x0b,
 			BlockInfo::new("lava_stationary")
 				.block_type(BlockType::FluidStationary { moving: 0x0a })
-				.perm(PlayerType::Operator, PlayerType::Normal),
+				.perm(PlayerType::Moderator, PlayerType::Normal),
 		),
 		(0x0c, BlockInfo::new("sand")),
 		(0x0d, BlockInfo::new("gravel")),
