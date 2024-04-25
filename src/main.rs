@@ -14,6 +14,7 @@ mod player;
 mod server;
 mod util;
 
+const SERVER_NAME: &str = "classics";
 const CONFIG_FILE: &str = "./server-config.json";
 
 #[tokio::main]

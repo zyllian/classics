@@ -1,6 +1,8 @@
 use half::f16;
 
-use crate::player::PlayerType;
+use crate::{level::WeatherType, player::PlayerType, SERVER_NAME};
+
+use super::ExtBitmask;
 
 #[derive(Debug, Clone)]
 #[allow(unused)]
@@ -91,6 +93,14 @@ pub enum ServerPacket {
 		/// 0x00 for normal, 0x64 for op
 		user_type: PlayerType,
 	},
+
+	// extension packets
+	/// packet to send info about the server's extensions
+	ExtInfo {},
+	/// packet to send info about an extension on the server
+	ExtEntry { ext_name: String, version: i32 },
+	/// informs the client that it should update the current weather
+	EnvWeatherType { weather_type: WeatherType },
 }
 
 impl ServerPacket {
@@ -112,6 +122,10 @@ impl ServerPacket {
 			Self::Message { .. } => 0x0d,
 			Self::DisconnectPlayer { .. } => 0x0e,
 			Self::UpdateUserType { .. } => 0x0f,
+
+			Self::ExtInfo {} => 0x10,
+			Self::ExtEntry { .. } => 0x11,
+			Self::EnvWeatherType { .. } => 0x1f,
 		}
 	}
 
@@ -221,6 +235,14 @@ impl ServerPacket {
 			}
 			Self::DisconnectPlayer { disconnect_reason } => writer.write_string(disconnect_reason),
 			Self::UpdateUserType { user_type } => writer.write_u8(user_type.into()),
+
+			Self::ExtInfo {} => writer
+				.write_string(SERVER_NAME)
+				.write_i16(ExtBitmask::all().all_contained_info().len() as i16),
+			Self::ExtEntry { ext_name, version } => {
+				writer.write_string(ext_name).write_i32(*version)
+			}
+			Self::EnvWeatherType { weather_type } => writer.write_u8(weather_type.into()),
 		}
 	}
 

@@ -17,6 +17,7 @@ const CMD_BAN: &str = "ban";
 const CMD_ALLOWENTRY: &str = "allowentry";
 const CMD_SETPASS: &str = "setpass";
 const CMD_SETLEVELSPAWN: &str = "setlevelspawn";
+const CMD_WEATHER: &str = "weather";
 
 /// list of commands available on the server
 pub const COMMANDS_LIST: &[&str] = &[
@@ -30,6 +31,7 @@ pub const COMMANDS_LIST: &[&str] = &[
 	CMD_ALLOWENTRY,
 	CMD_SETPASS,
 	CMD_SETLEVELSPAWN,
+	CMD_WEATHER,
 ];
 
 /// enum for possible commands
@@ -69,6 +71,8 @@ pub enum Command<'m> {
 	SetPass { password: &'m str },
 	/// sets the level spawn to the player's location
 	SetLevelSpawn,
+	/// changes the levels weather
+	Weather { weather_type: &'m str },
 }
 
 impl<'m> Command<'m> {
@@ -117,6 +121,9 @@ impl<'m> Command<'m> {
 				password: arguments.trim(),
 			},
 			CMD_SETLEVELSPAWN => Self::SetLevelSpawn,
+			CMD_WEATHER => Self::Weather {
+				weather_type: arguments,
+			},
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
@@ -134,6 +141,7 @@ impl<'m> Command<'m> {
 			Self::AllowEntry { .. } => CMD_ALLOWENTRY,
 			Self::SetPass { .. } => CMD_SETPASS,
 			Self::SetLevelSpawn => CMD_SETLEVELSPAWN,
+			Self::Weather { .. } => CMD_WEATHER,
 		}
 	}
 
@@ -194,6 +202,10 @@ impl<'m> Command<'m> {
 			CMD_SETLEVELSPAWN => vec![
 				c(""),
 				"&fSets the level's spawn to your location.".to_string(),
+			],
+			CMD_WEATHER => vec![
+				c("<weather type>"),
+				"&fSets the level's weather.".to_string(),
 			],
 			_ => vec!["&eUnknown command!".to_string()],
 		}
@@ -458,6 +470,19 @@ impl<'m> Command<'m> {
 				});
 				data.config_needs_saving = true;
 				messages.push("Level spawn updated!".to_string());
+			}
+
+			Command::Weather { weather_type } => {
+				if let Ok(weather_type) = weather_type.try_into() {
+					data.level.weather = weather_type;
+					let packet = ServerPacket::EnvWeatherType { weather_type };
+					for player in &mut data.players {
+						player.packets_to_send.push(packet.clone());
+					}
+					messages.push("Weather updated!".to_string());
+				} else {
+					messages.push(format!("&cUnknown weather type {weather_type}!"));
+				}
 			}
 		}
 

@@ -1,6 +1,10 @@
-use std::{collections::BTreeSet, path::Path};
+use std::{
+	collections::BTreeSet,
+	io::{Read, Write},
+	path::Path,
+};
 
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::{packet::server::ServerPacket, util::neighbors};
 
@@ -9,8 +13,11 @@ use self::block::BLOCK_INFO;
 pub mod block;
 pub mod generation;
 
+const LEVEL_INFO_PATH: &str = "info.json";
+const LEVEL_DATA_PATH: &str = "level.dat";
+
 /// a classic level
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Level {
 	/// the size of the level in the X direction
 	pub x_size: usize,
@@ -20,10 +27,15 @@ pub struct Level {
 	pub z_size: usize,
 
 	/// the blocks which make up the level
+	#[serde(skip)]
 	pub blocks: Vec<u8>,
+	/// the level's weather
+	pub weather: WeatherType,
+
 	/// index of blocks which need to be updated in the next tick
 	pub awaiting_update: BTreeSet<usize>,
 	/// list of updates to apply to the world on the next tick
+	#[serde(skip)]
 	pub updates: Vec<BlockUpdate>,
 }
 
@@ -35,6 +47,7 @@ impl Level {
 			y_size,
 			z_size,
 			blocks: vec![0; x_size * y_size * z_size],
+			weather: WeatherType::Sunny,
 			awaiting_update: Default::default(),
 			updates: Default::default(),
 		}
@@ -91,32 +104,104 @@ impl Level {
 		packets
 	}
 
-	pub async fn save<P>(&self, path: P)
+	/// saves the level
+	pub async fn save<P>(&self, path: P) -> std::io::Result<()>
 	where
 		P: AsRef<Path>,
 	{
+		let path = path.as_ref();
+		tokio::fs::create_dir_all(path).await?;
+		tokio::fs::write(
+			path.join(LEVEL_INFO_PATH),
+			serde_json::to_string_pretty(self).unwrap(),
+		)
+		.await?;
 		let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
-		bincode::encode_into_std_write(self, &mut encoder, bincode::config::standard()).unwrap();
-		tokio::fs::write(path, encoder.finish().unwrap())
-			.await
-			.unwrap();
+		encoder
+			.write_all(&self.blocks)
+			.expect("failed to write blocks");
+		tokio::fs::write(
+			path.join(LEVEL_DATA_PATH),
+			encoder.finish().expect("failed to encode blocks"),
+		)
+		.await
 	}
 
-	pub async fn load<P>(path: P) -> Self
+	/// loads the level
+	pub async fn load<P>(path: P) -> std::io::Result<Self>
 	where
 		P: AsRef<Path>,
 	{
-		let data = tokio::fs::read(path).await.unwrap();
-		let mut decoder = flate2::read::GzDecoder::new(data.as_slice());
-		bincode::decode_from_std_read(&mut decoder, bincode::config::standard()).unwrap()
+		let path = path.as_ref();
+		let mut info: Self =
+			serde_json::from_str(&tokio::fs::read_to_string(path.join(LEVEL_INFO_PATH)).await?)
+				.expect("failed to deserialize level info");
+		let blocks_data = tokio::fs::read(path.join(LEVEL_DATA_PATH)).await?;
+		let mut decoder = flate2::read::GzDecoder::new(blocks_data.as_slice());
+		decoder.read_to_end(&mut info.blocks)?;
+		let len = info.x_size * info.y_size * info.z_size;
+		if info.blocks.len() != len {
+			panic!(
+				"level data is not correct size! expected {len}, got {}",
+				info.blocks.len()
+			);
+		}
+		Ok(info)
 	}
 }
 
 /// struct describing a block update for the level to handle
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockUpdate {
 	/// the index of the block to be updated
 	pub index: usize,
 	/// the block type to set the block to
 	pub block: u8,
+}
+
+/// weather types for a level
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum WeatherType {
+	Sunny,
+	Raining,
+	Snowing,
+}
+
+impl Default for WeatherType {
+	fn default() -> Self {
+		Self::Sunny
+	}
+}
+
+impl From<&WeatherType> for u8 {
+	fn from(value: &WeatherType) -> Self {
+		match value {
+			WeatherType::Sunny => 0,
+			WeatherType::Raining => 1,
+			WeatherType::Snowing => 2,
+		}
+	}
+}
+
+impl From<u8> for WeatherType {
+	fn from(value: u8) -> Self {
+		match value {
+			1 => Self::Raining,
+			2 => Self::Snowing,
+			_ => Self::Sunny,
+		}
+	}
+}
+
+impl TryFrom<&str> for WeatherType {
+	type Error = ();
+
+	fn try_from(value: &str) -> Result<Self, Self::Error> {
+		Ok(match value {
+			"sunny" => Self::Sunny,
+			"raining" => Self::Raining,
+			"snowing" => Self::Snowing,
+			_ => return Err(()),
+		})
+	}
 }

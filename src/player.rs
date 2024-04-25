@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use half::f16;
 use serde::{Deserialize, Serialize};
 
-use crate::packet::server::ServerPacket;
+use crate::packet::{server::ServerPacket, ExtBitmask};
 
 /// struct for players
 #[derive(Debug)]
@@ -27,6 +27,8 @@ pub struct Player {
 
 	/// the player's IP address
 	pub _addr: SocketAddr,
+	/// the player's supported extensions
+	pub extensions: ExtBitmask,
 	/// queue of packets to be sent to this player
 	pub packets_to_send: Vec<ServerPacket>,
 	/// whether this player should be kicked and the message to give

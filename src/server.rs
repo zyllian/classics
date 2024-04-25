@@ -19,7 +19,7 @@ use crate::{
 use self::config::ServerConfig;
 
 const TICK_DURATION: std::time::Duration = std::time::Duration::from_millis(50);
-const LEVEL_PATH: &str = "level.clw";
+const LEVELS_PATH: &str = "levels";
 
 /// the server
 #[derive(Debug)]
@@ -59,9 +59,13 @@ impl ServerData {
 impl Server {
 	/// creates a new server with a generated level
 	pub async fn new(config: ServerConfig) -> std::io::Result<Self> {
-		let level_path = PathBuf::from(LEVEL_PATH);
+		let levels_path = PathBuf::from(LEVELS_PATH);
+		if !levels_path.exists() {
+			std::fs::create_dir_all(&levels_path)?;
+		}
+		let level_path = levels_path.join(&config.level_name);
 		let level = if level_path.exists() {
-			Level::load(level_path).await
+			Level::load(level_path).await?
 		} else {
 			println!("generating level");
 			let mut rng = rand::thread_rng();
@@ -71,6 +75,7 @@ impl Server {
 				config.level_size.z,
 			);
 			config.generation.generate(&mut level, &mut rng);
+			level.save(level_path).await?;
 			println!("done!");
 			level
 		};
@@ -104,9 +109,7 @@ impl Server {
 				println!("connection from {addr}");
 				let data = data.clone();
 				tokio::spawn(async move {
-					network::handle_stream(stream, addr, data)
-						.await
-						.expect("failed to handle client stream");
+					network::handle_stream(stream, addr, data).await;
 				});
 			}
 		});
@@ -116,7 +119,10 @@ impl Server {
 		// TODO: cancel pending tasks/send out "Server is stopping" messages *here* instead of elsewhere
 		// rn the message isn't guaranteed to actually go out........
 
-		self.data.read().await.level.save(LEVEL_PATH).await;
+		let data = self.data.read().await;
+		data.level
+			.save(PathBuf::from(LEVELS_PATH).join(&data.config.level_name))
+			.await?;
 
 		Ok(())
 	}
@@ -154,7 +160,10 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 			if data.config.auto_save_minutes != 0
 				&& last_auto_save.elapsed().as_secs() / 60 >= data.config.auto_save_minutes
 			{
-				data.level.save(LEVEL_PATH).await;
+				data.level
+					.save(PathBuf::from(LEVELS_PATH).join(&data.config.level_name))
+					.await
+					.expect("failed to autosave level");
 				last_auto_save = std::time::Instant::now();
 			}
 		}

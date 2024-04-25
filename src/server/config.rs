@@ -18,6 +18,8 @@ pub struct ServerConfig {
 	pub protection_mode: ServerProtectionMode,
 	/// map of user permissions
 	pub player_perms: BTreeMap<String, PlayerType>,
+	/// the level's name
+	pub level_name: String,
 	/// the level's size
 	pub level_size: ConfigCoordinates,
 	/// the level's spawn point
@@ -42,6 +44,7 @@ impl Default for ServerConfig {
 			motd: "here's the default server motd".to_string(),
 			protection_mode: ServerProtectionMode::None,
 			player_perms: Default::default(),
+			level_name: "default".to_string(),
 			level_size: ConfigCoordinates {
 				x: 256,
 				y: 64,

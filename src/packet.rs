@@ -2,6 +2,7 @@ use half::f16;
 use safer_bytes::{error::Truncated, SafeBuf};
 
 pub mod client;
+pub mod client_extended;
 pub mod server;
 
 /// length of classic strings
@@ -10,6 +11,30 @@ pub const STRING_LENGTH: usize = 64;
 pub const ARRAY_LENGTH: usize = 1024;
 /// units in an f16 unit
 pub const F16_UNITS: f32 = 32.0;
+/// the magic number to check whether the client supports extensions
+pub const EXTENSION_MAGIC_NUMBER: u8 = 0x42;
+
+/// information about a packet extension
+#[derive(Debug, PartialEq, Eq)]
+pub struct ExtInfo {
+	/// the extension's name
+	pub ext_name: String,
+	/// the extension's version
+	pub version: i32,
+	/// the bitmask for the extension
+	pub bitmask: ExtBitmask,
+}
+
+impl ExtInfo {
+	/// creates new extension info
+	pub const fn new(ext_name: String, version: i32, bitmask: ExtBitmask) -> Self {
+		Self {
+			ext_name,
+			version,
+			bitmask,
+		}
+	}
+}
 
 /// trait extending the `SafeBuf` type
 pub trait SafeBufExtension: SafeBuf {
@@ -80,6 +105,15 @@ impl PacketWriter {
 		self.write_i16(r)
 	}
 
+	/// writes an i32 to the packet
+	fn write_i32(self, i: i32) -> Self {
+		let mut s = self;
+		for b in i.to_be_bytes() {
+			s = s.write_u8(b);
+		}
+		s
+	}
+
 	/// writes a string to the packet
 	fn write_string(self, str: &str) -> Self {
 		let mut s = self;
@@ -107,5 +141,105 @@ impl PacketWriter {
 	/// writes an array of default length to the packet
 	fn write_array(self, bytes: &[u8]) -> Self {
 		self.write_array_of_length(bytes, ARRAY_LENGTH)
+	}
+}
+
+/// bitmask for enabled extensions
+/// values should not be saved to disk or sent over network! no guarantees on them remaining the same between versions
+#[bitmask_enum::bitmask(u64)]
+pub enum ExtBitmask {
+	ClickDistance,
+	CustomBlocks,
+	HeldBlock,
+	EmoteFix,
+	TextHotKey,
+	ExtPlayerList,
+	EnvColors,
+	SelectionCuboid,
+	BlockPermissions,
+	ChangeModel,
+	EnvMapAppearance,
+	EnvWeatherType,
+	HackControl,
+	MessageTypes,
+	PlayerClick,
+	LongerMessages,
+	FullCP437,
+	BlockDefinitions,
+	BlockDefinitionsExt,
+	BulkBlockUpdate,
+	TextColors,
+	EnvMapAspect,
+	EntityProperty,
+	ExtEntityPositions,
+	TwoWayPing,
+	InventoryOrder,
+	InstantMOTD,
+	ExtendedBlocks,
+	FastMap,
+	ExtendedTextures,
+	SetHotbar,
+	SetSpawnpoint,
+	VelocityControl,
+	CustomParticles,
+	CustomModels_v2,
+	ExtEntityTeleport,
+}
+
+impl ExtBitmask {
+	/// gets info about a specific extension
+	fn info(self) -> Option<ExtInfo> {
+		// TODO: add entries as extensions are supported
+		Some(match self {
+			Self::EnvWeatherType => {
+				ExtInfo::new("EnvWeatherType".to_string(), 1, Self::EnvWeatherType)
+			}
+			_ => return None,
+		})
+	}
+
+	/// gets info about all extensions
+	pub fn all_contained_info(self) -> Vec<ExtInfo> {
+		[
+			Self::ClickDistance,
+			Self::CustomBlocks,
+			Self::HeldBlock,
+			Self::EmoteFix,
+			Self::TextHotKey,
+			Self::ExtPlayerList,
+			Self::EnvColors,
+			Self::SelectionCuboid,
+			Self::BlockPermissions,
+			Self::ChangeModel,
+			Self::EnvMapAppearance,
+			Self::EnvWeatherType,
+			Self::HackControl,
+			Self::MessageTypes,
+			Self::PlayerClick,
+			Self::LongerMessages,
+			Self::FullCP437,
+			Self::BlockDefinitions,
+			Self::BlockDefinitionsExt,
+			Self::BulkBlockUpdate,
+			Self::TextColors,
+			Self::EnvMapAspect,
+			Self::EntityProperty,
+			Self::ExtEntityPositions,
+			Self::TwoWayPing,
+			Self::InventoryOrder,
+			Self::InstantMOTD,
+			Self::ExtendedBlocks,
+			Self::FastMap,
+			Self::ExtendedTextures,
+			Self::SetHotbar,
+			Self::SetSpawnpoint,
+			Self::VelocityControl,
+			Self::CustomParticles,
+			Self::CustomModels_v2,
+			Self::ExtEntityTeleport,
+		]
+		.into_iter()
+		.filter_map(|flag| (self & flag).info())
+		.collect()
 	}
 }

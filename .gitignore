@@ -1,5 +1,5 @@
 /target
 server-config.json
 .DS_Store
-*.clw
+/levels
 *.cw
