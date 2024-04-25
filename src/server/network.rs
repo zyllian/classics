@@ -18,7 +18,7 @@ use crate::{
 		client::ClientPacket, server::ServerPacket, ExtBitmask, PacketWriter, ARRAY_LENGTH,
 		EXTENSION_MAGIC_NUMBER,
 	},
-	player::{Player, PlayerType},
+	player::Player,
 	server::config::ServerProtectionMode,
 };
 
@@ -261,7 +261,7 @@ async fn handle_stream_inner(
 					}
 					msg!("&dWelcome to the server! Enjoyyyyyy".to_string());
 					reply_queue.push(ServerPacket::UpdateUserType {
-						user_type: PlayerType::Operator,
+						user_type: player_type,
 					});
 				}
 				ClientPacket::SetBlock {
