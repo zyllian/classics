@@ -7,6 +7,7 @@ pub enum GeneralError {
 	Json(#[from] serde_json::Error),
 	#[error("{0}")]
 	Custom(String),
+	#[allow(unused)]
 	#[error("{0}")]
 	CustomPrivate(String),
 }
