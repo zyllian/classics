@@ -19,6 +19,7 @@ const CMD_ALLOWENTRY: &str = "allowentry";
 const CMD_SETPASS: &str = "setpass";
 const CMD_SETLEVELSPAWN: &str = "setlevelspawn";
 const CMD_WEATHER: &str = "weather";
+const CMD_SAVE: &str = "save";
 
 /// list of commands available on the server
 pub const COMMANDS_LIST: &[&str] = &[
@@ -33,6 +34,7 @@ pub const COMMANDS_LIST: &[&str] = &[
 	CMD_SETPASS,
 	CMD_SETLEVELSPAWN,
 	CMD_WEATHER,
+	CMD_SAVE,
 ];
 
 /// enum for possible commands
@@ -74,6 +76,8 @@ pub enum Command<'m> {
 	SetLevelSpawn,
 	/// changes the levels weather
 	Weather { weather_type: &'m str },
+	/// saves the current level
+	Save,
 }
 
 impl<'m> Command<'m> {
@@ -128,6 +132,7 @@ impl<'m> Command<'m> {
 			CMD_WEATHER => Self::Weather {
 				weather_type: arguments,
 			},
+			CMD_SAVE => Self::Save,
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
@@ -146,6 +151,7 @@ impl<'m> Command<'m> {
 			Self::SetPass { .. } => CMD_SETPASS,
 			Self::SetLevelSpawn => CMD_SETLEVELSPAWN,
 			Self::Weather { .. } => CMD_WEATHER,
+			Self::Save => CMD_SAVE,
 		}
 	}
 
@@ -211,6 +217,7 @@ impl<'m> Command<'m> {
 				c("<weather type>"),
 				"&fSets the level's weather.".to_string(),
 			],
+			CMD_SAVE => vec![c(""), "&fSaves the current level.".to_string()],
 			_ => vec!["&eUnknown command!".to_string()],
 		}
 	}
@@ -496,6 +503,11 @@ impl<'m> Command<'m> {
 				} else {
 					messages.push(format!("&cUnknown weather type {weather_type}!"));
 				}
+			}
+
+			Command::Save => {
+				data.level.save_now = true;
+				messages.push("Saving level...".to_string());
 			}
 		}
 

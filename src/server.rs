@@ -157,9 +157,11 @@ async fn handle_ticks(data: Arc<RwLock<ServerData>>) {
 				break;
 			}
 
-			if data.config.auto_save_minutes != 0
-				&& last_auto_save.elapsed().as_secs() / 60 >= data.config.auto_save_minutes
+			if data.level.save_now
+				|| (data.config.auto_save_minutes != 0
+					&& last_auto_save.elapsed().as_secs() / 60 >= data.config.auto_save_minutes)
 			{
+				data.level.save_now = false;
 				data.level
 					.save(PathBuf::from(LEVELS_PATH).join(&data.config.level_name))
 					.await

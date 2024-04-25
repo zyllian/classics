@@ -37,6 +37,8 @@ pub struct Level {
 	/// list of updates to apply to the world on the next tick
 	#[serde(skip)]
 	pub updates: Vec<BlockUpdate>,
+	#[serde(skip)]
+	pub save_now: bool,
 }
 
 impl Level {
@@ -50,6 +52,7 @@ impl Level {
 			weather: WeatherType::Sunny,
 			awaiting_update: Default::default(),
 			updates: Default::default(),
+			save_now: false,
 		}
 	}
 
