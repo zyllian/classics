@@ -163,7 +163,8 @@ pub struct BlockUpdate {
 }
 
 /// weather types for a level
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::EnumString, strum::IntoStaticStr)]
+#[strum(ascii_case_insensitive)]
 pub enum WeatherType {
 	Sunny,
 	Raining,
@@ -193,18 +194,5 @@ impl From<u8> for WeatherType {
 			2 => Self::Snowing,
 			_ => Self::Sunny,
 		}
-	}
-}
-
-impl TryFrom<&str> for WeatherType {
-	type Error = ();
-
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		Ok(match value {
-			"sunny" => Self::Sunny,
-			"raining" => Self::Raining,
-			"snowing" => Self::Snowing,
-			_ => return Err(()),
-		})
 	}
 }
