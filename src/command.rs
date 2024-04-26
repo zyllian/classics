@@ -1,3 +1,5 @@
+use half::f16;
+
 use crate::{
 	packet::{server::ServerPacket, ExtBitmask, STRING_LENGTH},
 	player::PlayerType,
@@ -20,6 +22,9 @@ const CMD_SETPASS: &str = "setpass";
 const CMD_SETLEVELSPAWN: &str = "setlevelspawn";
 const CMD_WEATHER: &str = "weather";
 const CMD_SAVE: &str = "save";
+const CMD_TELEPORT: &str = "tp";
+
+const USERNAME_SELF: &str = "@s";
 
 /// list of commands available on the server
 pub const COMMANDS_LIST: &[&str] = &[
@@ -35,6 +40,7 @@ pub const COMMANDS_LIST: &[&str] = &[
 	CMD_SETLEVELSPAWN,
 	CMD_WEATHER,
 	CMD_SAVE,
+	CMD_TELEPORT,
 ];
 
 /// enum for possible commands
@@ -78,6 +84,17 @@ pub enum Command<'m> {
 	Weather { weather_type: &'m str },
 	/// saves the current level
 	Save,
+	/// teleports a player to the given coordinates or player
+	Teleport {
+		username: &'m str,
+		mode: TeleportMode<'m>,
+	},
+}
+
+#[derive(Debug, Clone)]
+pub enum TeleportMode<'m> {
+	Coordinates { x: f32, y: f32, z: f32 },
+	Player(&'m str),
 }
 
 impl<'m> Command<'m> {
@@ -133,6 +150,20 @@ impl<'m> Command<'m> {
 				weather_type: arguments,
 			},
 			CMD_SAVE => Self::Save,
+			CMD_TELEPORT => {
+				let username = Self::next_string(&mut arguments)?;
+				let mode = if let Ok(x) = Self::next_f32(&mut arguments) {
+					TeleportMode::Coordinates {
+						x,
+						y: Self::next_f32(&mut arguments)?,
+						z: Self::next_f32(&mut arguments)?,
+					}
+				} else {
+					TeleportMode::Player(arguments)
+				};
+
+				Self::Teleport { username, mode }
+			}
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
@@ -152,6 +183,7 @@ impl<'m> Command<'m> {
 			Self::SetLevelSpawn => CMD_SETLEVELSPAWN,
 			Self::Weather { .. } => CMD_WEATHER,
 			Self::Save => CMD_SAVE,
+			Self::Teleport { .. } => CMD_TELEPORT,
 		}
 	}
 
@@ -218,6 +250,10 @@ impl<'m> Command<'m> {
 				"&fSets the level's weather.".to_string(),
 			],
 			CMD_SAVE => vec![c(""), "&fSaves the current level.".to_string()],
+			CMD_TELEPORT => vec![
+				c("(<username> or <x> <y> <z>"),
+				"&fTeleports to the given username or coordinates.".to_string(),
+			],
 			_ => vec!["&eUnknown command!".to_string()],
 		}
 	}
@@ -250,9 +286,17 @@ impl<'m> Command<'m> {
 		};
 
 		let result = &args[start_index..end_index];
-		*args = &args[end_index + extra..];
+		*args = args[end_index + extra..].trim();
 
 		Ok(result)
+	}
+
+	/// gets the next f32 argument from the command
+	fn next_f32(args: &mut &'m str) -> Result<f32, String> {
+		let (s, r) = args.split_once(' ').unwrap_or((args, ""));
+		let n = s.parse().map_err(|_| "Expected number!".to_string())?;
+		*args = r.trim();
+		Ok(n)
 	}
 
 	/// processes the command >:3
@@ -508,6 +552,78 @@ impl<'m> Command<'m> {
 			Command::Save => {
 				data.level.save_now = true;
 				messages.push("Saving level...".to_string());
+			}
+
+			Command::Teleport { username, mode } => {
+				let username = if username == USERNAME_SELF {
+					player.username.clone()
+				} else {
+					username.to_string()
+				};
+
+				let (x, y, z, yaw, pitch, msg) = match mode {
+					TeleportMode::Player(username) => {
+						let username = if username == USERNAME_SELF {
+							player.username.clone()
+						} else {
+							username.to_string()
+						};
+						if let Some(player) =
+							data.players.iter_mut().find(|p| p.username == username)
+						{
+							(
+								player.x,
+								player.y,
+								player.z,
+								Some(player.yaw),
+								Some(player.pitch),
+								Some(format!("You have been teleported to {username}.")),
+							)
+						} else {
+							messages.push(format!("Unknown username: {username}"));
+							return messages;
+						}
+					}
+					TeleportMode::Coordinates { x, y, z } => (
+						f16::from_f32(x + 0.5),
+						f16::from_f32(y + 1.0),
+						f16::from_f32(z + 0.5),
+						None,
+						None,
+						None,
+					),
+				};
+
+				if let Some(player) = data.players.iter_mut().find(|p| p.username == username) {
+					player.x = x;
+					player.y = y;
+					player.z = z;
+					let packet = ServerPacket::SetPositionOrientation {
+						player_id: player.id,
+						x,
+						y,
+						z,
+						yaw: yaw.unwrap_or(player.yaw),
+						pitch: pitch.unwrap_or(player.pitch),
+					};
+					let id = player.id;
+
+					for player in &mut data.players {
+						let mut packet = packet.clone();
+						if player.id == id {
+							packet.set_player_id(-1);
+							player.packets_to_send.push(ServerPacket::Message {
+								player_id: -1,
+								message: msg.clone().unwrap_or_else(|| {
+									format!("You have been teleported to {x}, {y}, {z}.")
+								}),
+							});
+						}
+						player.packets_to_send.push(packet);
+					}
+				} else {
+					messages.push(format!("&fUnknown username: {username}!"));
+				}
 			}
 		}
 
