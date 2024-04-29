@@ -111,6 +111,15 @@ pub enum ServerPacket {
 	EnvWeatherType { weather_type: WeatherType },
 	/// packet to set a block's position in the client's inventory
 	SetInventoryOrder { order: u8, block: u8 },
+	ExtEntityTeleport {
+		entity_id: i8,
+		teleport_behavior: TeleportBehavior,
+		x: f16,
+		y: f16,
+		z: f16,
+		yaw: u8,
+		pitch: u8,
+	},
 }
 
 impl ServerPacket {
@@ -139,6 +148,7 @@ impl ServerPacket {
 			Self::HoldThis { .. } => 0x14,
 			Self::EnvWeatherType { .. } => 0x1f,
 			Self::SetInventoryOrder { .. } => 0x2c,
+			Self::ExtEntityTeleport { .. } => 0x36,
 		}
 	}
 
@@ -262,6 +272,22 @@ impl ServerPacket {
 			} => writer.write_u8(*block).write_bool(*prevent_change),
 			Self::EnvWeatherType { weather_type } => writer.write_u8(weather_type.into()),
 			Self::SetInventoryOrder { order, block } => writer.write_u8(*order).write_u8(*block),
+			Self::ExtEntityTeleport {
+				entity_id,
+				teleport_behavior,
+				x,
+				y,
+				z,
+				yaw,
+				pitch,
+			} => writer
+				.write_i8(*entity_id)
+				.write_u8(teleport_behavior.bits())
+				.write_f16(*x)
+				.write_f16(*y)
+				.write_f16(*z)
+				.write_u8(*yaw)
+				.write_u8(*pitch),
 		}
 	}
 
@@ -275,6 +301,7 @@ impl ServerPacket {
 			Self::UpdateOrientation { player_id, .. } => *player_id,
 			Self::DespawnPlayer { player_id, .. } => *player_id,
 			Self::Message { player_id, .. } => *player_id,
+			Self::ExtEntityTeleport { entity_id, .. } => *entity_id,
 			_ => return None,
 		})
 	}
@@ -289,6 +316,7 @@ impl ServerPacket {
 			Self::UpdateOrientation { player_id, .. } => *player_id = new_player_id,
 			Self::DespawnPlayer { player_id, .. } => *player_id = new_player_id,
 			Self::Message { player_id, .. } => *player_id = new_player_id,
+			Self::ExtEntityTeleport { entity_id, .. } => *entity_id = new_player_id,
 			_ => {}
 		}
 	}
@@ -300,4 +328,16 @@ impl ServerPacket {
 			Self::SetBlock { .. } | Self::SpawnPlayer { .. } | Self::Message { .. }
 		)
 	}
+}
+
+/// bitmask for ExtEntityTeleport's teleport behavior
+#[bitmask_enum::bitmask(u8)]
+pub enum TeleportBehavior {
+	UsePosition = 0b00000001,
+	ModeInstant = 0,
+	ModeInterpolated = 0b00000010,
+	ModeRelativeInterpolated = 0b00000100,
+	ModeRelativeSeamless = 0b00000110,
+	UseOrientation = 0b00010000,
+	InterpolateOrientation = 0b00100000,
 }

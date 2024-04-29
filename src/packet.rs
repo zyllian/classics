@@ -208,6 +208,9 @@ impl ExtBitmask {
 			Self::InventoryOrder => {
 				ExtInfo::new("InventoryOrder".to_string(), 1, Self::InventoryOrder)
 			}
+			Self::ExtEntityTeleport => {
+				ExtInfo::new("ExtEntityTeleport".to_string(), 1, Self::ExtEntityTeleport)
+			}
 			_ => return None,
 		})
 	}

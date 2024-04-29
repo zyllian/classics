@@ -1,7 +1,10 @@
 use half::f16;
 
 use crate::{
-	packet::{server::ServerPacket, ExtBitmask, STRING_LENGTH},
+	packet::{
+		server::{ServerPacket, TeleportBehavior},
+		ExtBitmask, STRING_LENGTH,
+	},
 	player::PlayerType,
 	server::{
 		config::{ConfigCoordinatesWithOrientation, ServerProtectionMode},
@@ -595,21 +598,41 @@ impl<'m> Command<'m> {
 				};
 
 				if let Some(player) = data.players.iter_mut().find(|p| p.username == username) {
+					let yaw = yaw.unwrap_or(player.yaw);
+					let pitch = pitch.unwrap_or(player.pitch);
 					player.x = x;
 					player.y = y;
 					player.z = z;
+					player.yaw = yaw;
+					player.pitch = pitch;
 					let packet = ServerPacket::SetPositionOrientation {
 						player_id: player.id,
 						x,
 						y,
 						z,
-						yaw: yaw.unwrap_or(player.yaw),
-						pitch: pitch.unwrap_or(player.pitch),
+						yaw,
+						pitch,
+					};
+					let ext_packet = ServerPacket::ExtEntityTeleport {
+						entity_id: player.id,
+						teleport_behavior: TeleportBehavior::UsePosition
+							| TeleportBehavior::UseOrientation
+							| TeleportBehavior::ModeInterpolated,
+						x,
+						y,
+						z,
+						yaw,
+						pitch,
 					};
 					let id = player.id;
 
 					for player in &mut data.players {
-						let mut packet = packet.clone();
+						let mut packet =
+							if player.extensions.contains(ExtBitmask::ExtEntityTeleport) {
+								ext_packet.clone()
+							} else {
+								packet.clone()
+							};
 						if player.id == id {
 							packet.set_player_id(-1);
 							player.packets_to_send.push(ServerPacket::Message {
