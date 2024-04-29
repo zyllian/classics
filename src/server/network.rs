@@ -17,7 +17,7 @@ use crate::{
 	level::{block::BLOCK_INFO, BlockUpdate, Level},
 	packet::{
 		client::ClientPacket, server::ServerPacket, ExtBitmask, PacketWriter, ARRAY_LENGTH,
-		EXTENSION_MAGIC_NUMBER,
+		EXTENSION_MAGIC_NUMBER, STRING_LENGTH,
 	},
 	player::{Player, PlayerType},
 	server::config::ServerProtectionMode,
@@ -132,6 +132,7 @@ async fn handle_stream_inner(
 	own_id: &mut i8,
 ) -> Result<(), GeneralError> {
 	let mut reply_queue: Vec<ServerPacket> = Vec::new();
+	let mut incoming_message: Vec<String> = Vec::new();
 
 	macro_rules! msg {
 		($message:expr) => {
@@ -411,6 +412,22 @@ async fn handle_stream_inner(
 				ClientPacket::Message { player_id, message } => {
 					let mut data = data.write().await;
 
+					let player = data
+						.players
+						.iter()
+						.find(|p| p.id == *own_id)
+						.expect("missing player");
+					let message = if player.extensions.contains(ExtBitmask::LongerMessages) {
+						incoming_message.push(message);
+						if player_id == 0 {
+							incoming_message.drain(..).collect()
+						} else {
+							continue;
+						}
+					} else {
+						message
+					};
+
 					if let Some(message) = message.strip_prefix(Command::PREFIX) {
 						match Command::parse(message) {
 							Ok(cmd) => {
@@ -424,7 +441,8 @@ async fn handle_stream_inner(
 						}
 					} else {
 						println!("{message}");
-						let message = format!(
+						let mut messages = Vec::new();
+						let mut message = format!(
 							"&f<{}> {message}",
 							data.players
 								.iter()
@@ -432,7 +450,16 @@ async fn handle_stream_inner(
 								.expect("should never fail")
 								.username
 						);
-						data.spread_packet(ServerPacket::Message { player_id, message });
+						while message.len() > STRING_LENGTH {
+							// TODO: split on whitespace if possible
+							let new_message = message.split_off(STRING_LENGTH);
+							// TODO: this will overwrite color codes and it shouldn't
+							messages.push(ServerPacket::Message { player_id, message });
+							message = format!("&f{new_message}");
+						}
+						messages.push(ServerPacket::Message { player_id, message });
+						println!("{messages:#?}");
+						data.spread_packets(&messages);
 					}
 				}
 

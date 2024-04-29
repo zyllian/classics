@@ -200,6 +200,9 @@ impl ExtBitmask {
 			// this isn't actually used by the server at all, but it technically sort of implements it
 			Self::HeldBlock => ExtInfo::new("HeldBlock".to_string(), 1, Self::HeldBlock),
 			Self::EmoteFix => ExtInfo::new("EmoteFix".to_string(), 1, Self::EmoteFix),
+			Self::LongerMessages => {
+				ExtInfo::new("LongerMessages".to_string(), 1, Self::LongerMessages)
+			}
 			// TODO: render CP437 properly in server output
 			Self::FullCP437 => ExtInfo::new("FullCP437".to_string(), 1, Self::FullCP437),
 			Self::EnvWeatherType => {

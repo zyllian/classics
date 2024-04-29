@@ -58,6 +58,15 @@ impl ServerData {
 			player.packets_to_send.push(packet.clone());
 		}
 	}
+
+	/// spreads multiple packets to all players
+	pub fn spread_packets(&mut self, packets: &[ServerPacket]) {
+		for player in &mut self.players {
+			for packet in packets {
+				player.packets_to_send.push(packet.clone());
+			}
+		}
+	}
 }
 
 impl Server {
