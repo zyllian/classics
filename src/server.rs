@@ -8,7 +8,10 @@ use tokio::{net::TcpListener, sync::RwLock};
 use crate::{
 	error::GeneralError,
 	level::{
-		block::{BlockType, BLOCK_INFO},
+		block::{
+			BlockType, BLOCK_INFO, ID_LAVA_FLOWING, ID_LAVA_STATIONARY, ID_STONE, ID_WATER_FLOWING,
+			ID_WATER_STATIONARY,
+		},
 		BlockUpdate, Level,
 	},
 	packet::server::ServerPacket,
@@ -207,18 +210,39 @@ fn tick(data: &mut ServerData, tick: usize) {
 					};
 					level.updates.push(update);
 					for (nx, ny, nz) in neighbors_minus_up(level, x, y, z) {
-						let block_at = BLOCK_INFO
-							.get(&level.get_block(nx, ny, nz))
-							.expect("missing block");
-						let update = if matches!(block_at.block_type, BlockType::NonSolid) {
-							level.awaiting_update.insert(level.index(nx, ny, nz));
-							BlockUpdate {
-								index: level.index(nx, ny, nz),
+						let id = level.get_block(nx, ny, nz);
+						let block_at = BLOCK_INFO.get(&id).expect("missing block");
+						let index = level.index(nx, ny, nz);
+						let update = match block_at.block_type {
+							BlockType::NonSolid => BlockUpdate {
+								index,
 								block: block_id,
+							},
+							BlockType::FluidFlowing { .. } | BlockType::FluidStationary { .. } => {
+								let turn_to_stone = match block_id {
+									ID_WATER_FLOWING | ID_WATER_STATIONARY => {
+										id == ID_LAVA_FLOWING || id == ID_LAVA_STATIONARY
+									}
+									ID_LAVA_FLOWING | ID_LAVA_STATIONARY => {
+										id == ID_WATER_FLOWING || id == ID_WATER_STATIONARY
+									}
+									_ => panic!(
+										"unimplemented fluid interactions for fluid: {}",
+										block.str_id
+									),
+								};
+								if turn_to_stone {
+									BlockUpdate {
+										index,
+										block: ID_STONE,
+									}
+								} else {
+									continue;
+								}
 							}
-						} else {
-							continue;
+							_ => continue,
 						};
+						level.awaiting_update.insert(index);
 						level.updates.push(update);
 					}
 				} else {

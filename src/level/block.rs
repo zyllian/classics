@@ -7,11 +7,17 @@ use crate::player::PlayerType;
 /// the level of custom blocks supported by the server
 pub const CUSTOM_BLOCKS_SUPPORT_LEVEL: u8 = 1;
 
+pub const ID_STONE: u8 = 0x01;
+pub const ID_WATER_FLOWING: u8 = 0x08;
+pub const ID_WATER_STATIONARY: u8 = 0x09;
+pub const ID_LAVA_FLOWING: u8 = 0x0a;
+pub const ID_LAVA_STATIONARY: u8 = 0x0b;
+
 /// information about all blocks implemented
 pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 	[
 		(0x00, BlockInfo::new("air").block_type(BlockType::NonSolid)),
-		(0x01, BlockInfo::new("stone")),
+		(ID_STONE, BlockInfo::new("stone")),
 		(0x02, BlockInfo::new("grass")),
 		(0x03, BlockInfo::new("dirt")),
 		(0x04, BlockInfo::new("cobblestone")),
@@ -25,7 +31,7 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 			BlockInfo::new("bedrock").perm(PlayerType::Moderator, PlayerType::Moderator),
 		),
 		(
-			0x08,
+			ID_WATER_FLOWING,
 			BlockInfo::new("water_flowing")
 				.block_type(BlockType::FluidFlowing {
 					stationary: 0x09,
@@ -34,13 +40,13 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 				.perm(PlayerType::Moderator, PlayerType::Normal),
 		),
 		(
-			0x09,
+			ID_WATER_STATIONARY,
 			BlockInfo::new("water_stationary")
 				.block_type(BlockType::FluidStationary { moving: 0x08 })
 				.perm(PlayerType::Moderator, PlayerType::Normal),
 		),
 		(
-			0x0a,
+			ID_LAVA_FLOWING,
 			BlockInfo::new("lava_flowing")
 				.block_type(BlockType::FluidFlowing {
 					stationary: 0x0b,
@@ -49,7 +55,7 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 				.perm(PlayerType::Moderator, PlayerType::Normal),
 		),
 		(
-			0x0b,
+			ID_LAVA_STATIONARY,
 			BlockInfo::new("lava_stationary")
 				.block_type(BlockType::FluidStationary { moving: 0x0a })
 				.perm(PlayerType::Moderator, PlayerType::Normal),
