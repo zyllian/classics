@@ -1,5 +1,3 @@
-#![feature(lazy_cell)]
-
 use std::path::PathBuf;
 
 use error::GeneralError;
