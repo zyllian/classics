@@ -1,4 +1,7 @@
-use std::net::SocketAddr;
+use std::{
+	net::SocketAddr,
+	ops::{Deref, DerefMut},
+};
 
 use half::f16;
 use serde::{Deserialize, Serialize};
@@ -12,16 +15,8 @@ pub struct Player {
 	pub id: i8,
 	/// the player's username
 	pub username: String,
-	/// the player's X coordinate
-	pub x: f16,
-	/// the player's Y coordinate
-	pub y: f16,
-	/// the player's Z coordinate
-	pub z: f16,
-	/// the player's yaw
-	pub yaw: u8,
-	/// the player's pitch
-	pub pitch: u8,
+	/// the player's savable data
+	pub savable_data: SavablePlayerData,
 	/// the player's permission state
 	pub permissions: PlayerType,
 
@@ -35,6 +30,35 @@ pub struct Player {
 	pub packets_to_send: Vec<ServerPacket>,
 	/// whether this player should be kicked and the message to give
 	pub should_be_kicked: Option<String>,
+}
+
+impl Deref for Player {
+	type Target = SavablePlayerData;
+
+	fn deref(&self) -> &Self::Target {
+		&self.savable_data
+	}
+}
+
+impl DerefMut for Player {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.savable_data
+	}
+}
+
+/// savable data about the player
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct SavablePlayerData {
+	/// the player's X coordinate
+	pub x: f16,
+	/// the player's Y coordinate
+	pub y: f16,
+	/// the player's Z coordinate
+	pub z: f16,
+	/// the player's yaw
+	pub yaw: u8,
+	/// the player's pitch
+	pub pitch: u8,
 }
 
 /// enum describing types of players

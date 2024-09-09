@@ -122,6 +122,9 @@ pub(super) async fn handle_stream(
 			player.packets_to_send.push(despawn_packet.clone());
 			player.packets_to_send.push(message_packet.clone());
 		}
+		data.level
+			.player_data
+			.insert(player.username, player.savable_data);
 	}
 }
 
@@ -161,8 +164,6 @@ async fn handle_stream_inner(
 					if protocol_version != 0x07 {
 						return Err(GeneralError::Custom("Unknown protocol version! Please connect with a classic 0.30-compatible client.".to_string()));
 					}
-
-					let zero = f16::from_f32(0.0);
 
 					let mut data = data.write().await;
 
@@ -208,15 +209,15 @@ async fn handle_stream_inner(
 						.copied()
 						.unwrap_or_default();
 
+					let savable_data = data.level.player_data.get(&username).cloned();
+					let needs_spawn_coords = savable_data.is_none();
+					let savable_data = savable_data.unwrap_or_default();
+
 					let mut player = Player {
 						_addr: addr,
 						id: *own_id, // TODO: actually assign user ids
 						username,
-						x: zero,
-						y: zero,
-						z: zero,
-						yaw: 0,
-						pitch: 0,
+						savable_data,
 						permissions: player_type,
 						extensions: ExtBitmask::none(),
 						custom_blocks_support_level: 0,
@@ -252,35 +253,39 @@ async fn handle_stream_inner(
 
 					let username = player.username.clone();
 
-					let (spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch) =
-						if let Some(spawn) = &data.config.spawn {
-							(spawn.x, spawn.y, spawn.z, spawn.yaw, spawn.pitch)
-						} else {
-							(16.5, (data.level.y_size / 2 + 2) as f32, 16.5, 0, 0)
-						};
+					if needs_spawn_coords {
+						let (spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch) =
+							if let Some(spawn) = &data.config.spawn {
+								(spawn.x, spawn.y, spawn.z, spawn.yaw, spawn.pitch)
+							} else {
+								(16.5, (data.level.y_size / 2 + 2) as f32, 16.5, 0, 0)
+							};
 
-					let (spawn_x, spawn_y, spawn_z) = (
-						f16::from_f32(spawn_x),
-						f16::from_f32(spawn_y),
-						f16::from_f32(spawn_z),
-					);
+						let (spawn_x, spawn_y, spawn_z) = (
+							f16::from_f32(spawn_x),
+							f16::from_f32(spawn_y),
+							f16::from_f32(spawn_z),
+						);
 
-					player.x = spawn_x;
-					player.y = spawn_y;
-					player.z = spawn_z;
-					player.yaw = spawn_yaw;
-					player.pitch = spawn_pitch;
-					data.players.push(player);
+						player.x = spawn_x;
+						player.y = spawn_y;
+						player.z = spawn_z;
+						player.yaw = spawn_yaw;
+						player.pitch = spawn_pitch;
+					}
 
 					let spawn_packet = ServerPacket::SpawnPlayer {
 						player_id: *own_id,
 						player_name: username.clone(),
-						x: spawn_x,
-						y: spawn_y,
-						z: spawn_z,
-						yaw: spawn_yaw,
-						pitch: spawn_pitch,
+						x: player.x,
+						y: player.y,
+						z: player.z,
+						yaw: player.yaw,
+						pitch: player.pitch,
 					};
+
+					data.players.push(player);
+
 					let message_packet = ServerPacket::Message {
 						player_id: *own_id,
 						message: format!("&e{} has joined the server.", username),

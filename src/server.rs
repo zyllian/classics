@@ -137,7 +137,13 @@ impl Server {
 		// TODO: cancel pending tasks/send out "Server is stopping" messages *here* instead of elsewhere
 		// rn the message isn't guaranteed to actually go out........
 
-		let data = self.data.read().await;
+		let mut data = self.data.write().await;
+		let player_data = data
+			.players
+			.iter()
+			.map(|p| (p.username.clone(), p.savable_data.clone()))
+			.collect();
+		data.level.update_player_data(player_data);
 		data.level
 			.save(PathBuf::from(LEVELS_PATH).join(&data.config.level_name))
 			.await?;

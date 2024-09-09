@@ -1,12 +1,14 @@
 use std::{
-	collections::BTreeSet,
+	collections::{BTreeMap, BTreeSet},
 	io::{Read, Write},
 	path::Path,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{error::GeneralError, packet::server::ServerPacket, util::neighbors};
+use crate::{
+	error::GeneralError, packet::server::ServerPacket, player::SavablePlayerData, util::neighbors,
+};
 
 use self::block::BLOCK_INFO;
 
@@ -39,6 +41,9 @@ pub struct Level {
 	pub updates: Vec<BlockUpdate>,
 	#[serde(skip)]
 	pub save_now: bool,
+
+	#[serde(default)]
+	pub player_data: BTreeMap<String, SavablePlayerData>,
 }
 
 impl Level {
@@ -53,6 +58,7 @@ impl Level {
 			awaiting_update: Default::default(),
 			updates: Default::default(),
 			save_now: false,
+			player_data: Default::default(),
 		}
 	}
 
@@ -105,6 +111,13 @@ impl Level {
 		}
 
 		packets
+	}
+
+	/// updates player data for the level
+	pub fn update_player_data(&mut self, player_data: Vec<(String, SavablePlayerData)>) {
+		for (username, data) in player_data {
+			self.player_data.insert(username, data);
+		}
 	}
 
 	/// saves the level
