@@ -130,6 +130,7 @@ impl Server {
 				});
 			}
 		});
+		println!("server is started!");
 		handle_ticks(self.data.clone()).await?;
 		tokio::time::sleep(std::time::Duration::from_millis(1)).await;
 
