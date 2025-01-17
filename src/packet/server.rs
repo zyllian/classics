@@ -261,7 +261,7 @@ impl ServerPacket {
 
 			Self::ExtInfo => writer
 				.write_string(SERVER_NAME)
-				.write_i16(ExtBitmask::all().all_contained_info().len() as i16),
+				.write_i16(ExtBitmask::all_bits().all_contained_info().len() as i16),
 			Self::ExtEntry { ext_name, version } => {
 				writer.write_string(ext_name).write_i32(*version)
 			}

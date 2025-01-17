@@ -105,7 +105,7 @@ impl<'m> Command<'m> {
 	pub const PREFIX: char = '/';
 
 	/// parses a command, returning the parsed command or an error to be displayed to the player who sent the command
-	pub fn parse(input: &'m str) -> Result<Command, String> {
+	pub fn parse(input: &'m str) -> Result<Command<'m>, String> {
 		let (command_name, mut arguments) = input.split_once(' ').unwrap_or((input, ""));
 		Ok(match command_name {
 			CMD_ME => Self::Me { action: arguments },

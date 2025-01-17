@@ -14,7 +14,7 @@ use super::{next_packet, write_packets};
 pub async fn get_supported_extensions(
 	stream: &mut TcpStream,
 ) -> Result<(ExtBitmask, u8), GeneralError> {
-	let extensions = ExtBitmask::all().all_contained_info();
+	let extensions = ExtBitmask::all_bits().all_contained_info();
 
 	write_packets(
 		stream,
