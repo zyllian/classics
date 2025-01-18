@@ -215,7 +215,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 	// apply random tick updates
 	let mut rng = rand::thread_rng();
 	level.possible_random_updates.shuffle(&mut rng);
-	for _ in 0..level.level_rules.random_tick_updates {
+	for _ in 0..level.rules.random_tick_updates {
 		if let Some(index) = level.possible_random_updates.pop() {
 			level.awaiting_update.insert(index);
 		} else {
@@ -240,7 +240,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 								.is_none_or(|id| id == 0x00)
 							{
 								dirt_count += 1;
-								if rng.gen_range(0..level.level_rules.grass_spread_chance) == 0 {
+								if rng.gen_range(0..level.rules.grass_spread_chance) == 0 {
 									dirt_count -= 1;
 									level.updates.push(BlockUpdate {
 										index: level.index(nx, ny, nz),
@@ -255,7 +255,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 						.is_some_and(|id| id != 0x00)
 					{
 						dirt_count += 1;
-						if rng.gen_range(0..level.level_rules.grass_spread_chance) == 0 {
+						if rng.gen_range(0..level.rules.grass_spread_chance) == 0 {
 							dirt_count -= 1;
 							level.updates.push(BlockUpdate {
 								index: level.index(x, y, z),
@@ -278,7 +278,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 				stationary,
 				ticks_to_spread,
 			} => {
-				if !level.level_rules.fluid_spread {
+				if !level.rules.fluid_spread {
 					continue;
 				}
 				if tick % ticks_to_spread == 0 {
@@ -328,7 +328,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 				}
 			}
 			BlockType::FluidStationary { moving } => {
-				if !level.level_rules.fluid_spread {
+				if !level.rules.fluid_spread {
 					continue;
 				}
 				let mut needs_update = false;

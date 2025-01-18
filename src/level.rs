@@ -38,7 +38,7 @@ pub struct Level {
 	pub weather: WeatherType,
 	/// the level's level rules
 	#[serde(default)]
-	pub level_rules: LevelRules,
+	pub rules: LevelRules,
 
 	/// index of blocks which need to be updated in the next tick
 	#[serde(default)]
@@ -65,7 +65,7 @@ impl Level {
 			z_size,
 			blocks: vec![0; x_size * y_size * z_size],
 			weather: WeatherType::Sunny,
-			level_rules: Default::default(),
+			rules: Default::default(),
 			awaiting_update: Default::default(),
 			possible_random_updates: Default::default(),
 			updates: Default::default(),

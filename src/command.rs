@@ -671,7 +671,7 @@ impl<'m> Command<'m> {
 			Command::LevelRule { rule, value } => {
 				if rule == "all" {
 					// get all rules
-					if let Some(rules) = data.level.level_rules.get_all_rules_info() {
+					if let Some(rules) = data.level.rules.get_all_rules_info() {
 						for (name, rule) in rules {
 							messages.push(format!("&f{name}: {rule}"));
 						}
@@ -680,7 +680,7 @@ impl<'m> Command<'m> {
 					}
 				} else if let Some(value) = value {
 					// set a rule
-					match data.level.level_rules.set_rule(rule, value) {
+					match data.level.rules.set_rule(rule, value) {
 						Ok(()) => {
 							messages.push(format!("&fUpdated rule {rule}"));
 						}
@@ -690,7 +690,7 @@ impl<'m> Command<'m> {
 					}
 				} else {
 					// get a rule
-					if let Some(info) = data.level.level_rules.get_rule(rule) {
+					if let Some(info) = data.level.rules.get_rule(rule) {
 						messages.push(format!("&f{info}"));
 					} else {
 						messages.push(format!("Unknown rule: {rule}"));
