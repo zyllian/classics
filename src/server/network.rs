@@ -14,7 +14,10 @@ use tokio::{
 use crate::{
 	command::Command,
 	error::GeneralError,
-	level::{block::BLOCK_INFO, BlockUpdate, Level},
+	level::{
+		block::{BLOCK_INFO, ID_AIR},
+		BlockUpdate, Level,
+	},
 	packet::{
 		client::ClientPacket, server::ServerPacket, ExtBitmask, PacketWriter, ARRAY_LENGTH,
 		EXTENSION_MAGIC_NUMBER, STRING_LENGTH,
@@ -326,7 +329,7 @@ async fn handle_stream_inner(
 					mode,
 					block_type,
 				} => {
-					let block_type = if mode == 0x00 { 0 } else { block_type };
+					let block_type = if mode == 0x00 { ID_AIR } else { block_type };
 					let mut data = data.write().await;
 
 					// kick players if they attempt to place a block out of bounds
@@ -382,6 +385,9 @@ async fn handle_stream_inner(
 					});
 					if new_block_info.block_type.needs_update_on_place() {
 						data.level.awaiting_update.insert(index);
+					}
+					if new_block_info.may_receive_random_ticks {
+						data.level.possible_random_updates.push(index);
 					}
 				}
 				ClientPacket::PositionOrientation {

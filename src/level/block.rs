@@ -7,7 +7,10 @@ use crate::player::PlayerType;
 /// the level of custom blocks supported by the server
 pub const CUSTOM_BLOCKS_SUPPORT_LEVEL: u8 = 1;
 
+pub const ID_AIR: u8 = 0x00;
 pub const ID_STONE: u8 = 0x01;
+pub const ID_GRASS: u8 = 0x02;
+pub const ID_DIRT: u8 = 0x03;
 pub const ID_WATER_FLOWING: u8 = 0x08;
 pub const ID_WATER_STATIONARY: u8 = 0x09;
 pub const ID_LAVA_FLOWING: u8 = 0x0a;
@@ -16,10 +19,21 @@ pub const ID_LAVA_STATIONARY: u8 = 0x0b;
 /// information about all blocks implemented
 pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 	[
-		(0x00, BlockInfo::new("air").block_type(BlockType::NonSolid)),
+		(
+			ID_AIR,
+			BlockInfo::new("air").block_type(BlockType::NonSolid),
+		),
 		(ID_STONE, BlockInfo::new("stone")),
-		(0x02, BlockInfo::new("grass")),
-		(0x03, BlockInfo::new("dirt")),
+		(
+			ID_GRASS,
+			BlockInfo::new("grass")
+				.needs_update_when_neighbor_changed()
+				.may_receive_random_ticks(),
+		),
+		(
+			ID_DIRT,
+			BlockInfo::new("dirt").needs_update_when_neighbor_changed(),
+		),
 		(0x04, BlockInfo::new("cobblestone")),
 		(0x05, BlockInfo::new("planks")),
 		(
@@ -43,7 +57,8 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 			ID_WATER_STATIONARY,
 			BlockInfo::new("water_stationary")
 				.block_type(BlockType::FluidStationary { moving: 0x08 })
-				.perm(PlayerType::Moderator, PlayerType::Normal),
+				.perm(PlayerType::Moderator, PlayerType::Normal)
+				.needs_update_when_neighbor_changed(),
 		),
 		(
 			ID_LAVA_FLOWING,
@@ -58,7 +73,8 @@ pub static BLOCK_INFO: LazyLock<BTreeMap<u8, BlockInfo>> = LazyLock::new(|| {
 			ID_LAVA_STATIONARY,
 			BlockInfo::new("lava_stationary")
 				.block_type(BlockType::FluidStationary { moving: 0x0a })
-				.perm(PlayerType::Moderator, PlayerType::Normal),
+				.perm(PlayerType::Moderator, PlayerType::Normal)
+				.needs_update_when_neighbor_changed(),
 		),
 		(0x0c, BlockInfo::new("sand")),
 		(0x0d, BlockInfo::new("gravel")),
@@ -169,6 +185,10 @@ pub struct BlockInfo {
 	pub break_permissions: PlayerType,
 	/// the block used as fallback if the client doesn't support it
 	pub fallback: Option<u8>,
+	/// whether this block needs an update when its neighbor is changed
+	pub needs_update_when_neighbor_changed: bool,
+	/// whether this block may receive random ticks
+	pub may_receive_random_ticks: bool,
 }
 
 impl BlockInfo {
@@ -180,6 +200,8 @@ impl BlockInfo {
 			place_permissions: PlayerType::Normal,
 			break_permissions: PlayerType::Normal,
 			fallback: None,
+			needs_update_when_neighbor_changed: false,
+			may_receive_random_ticks: false,
 		}
 	}
 
@@ -200,6 +222,18 @@ impl BlockInfo {
 	pub const fn fallback(mut self, fallback: u8) -> Self {
 		assert!(fallback <= 0x31, "fallback must be under 0x31!");
 		self.fallback = Some(fallback);
+		self
+	}
+
+	/// marks this block as needing updates when its neighbor is changed
+	pub const fn needs_update_when_neighbor_changed(mut self) -> Self {
+		self.needs_update_when_neighbor_changed = true;
+		self
+	}
+
+	/// makes this block capable of receiving random ticks and marks it as eligible when placed
+	pub const fn may_receive_random_ticks(mut self) -> Self {
+		self.may_receive_random_ticks = true;
 		self
 	}
 }
@@ -230,15 +264,6 @@ impl BlockType {
 	pub fn needs_update_on_place(&self) -> bool {
 		match self {
 			BlockType::FluidFlowing { .. } => true,
-			_ => false,
-		}
-	}
-
-	/// gets whether this block type needs an update when one of it's direct neighbors changes
-	#[allow(clippy::match_like_matches_macro)]
-	pub fn needs_update_when_neighbor_changed(&self) -> bool {
-		match self {
-			BlockType::FluidStationary { .. } => true,
 			_ => false,
 		}
 	}

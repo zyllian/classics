@@ -9,7 +9,8 @@ use bevy_reflect::{PartialReflect, Struct};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-	error::GeneralError, packet::server::ServerPacket, player::SavablePlayerData, util::neighbors,
+	error::GeneralError, packet::server::ServerPacket, player::SavablePlayerData,
+	util::neighbors_full,
 };
 
 use self::block::BLOCK_INFO;
@@ -40,7 +41,11 @@ pub struct Level {
 	pub level_rules: LevelRules,
 
 	/// index of blocks which need to be updated in the next tick
+	#[serde(default)]
 	pub awaiting_update: BTreeSet<usize>,
+	/// index of blocks which are eligible for random tick updates
+	#[serde(default)]
+	pub possible_random_updates: Vec<usize>,
 	/// list of updates to apply to the world on the next tick
 	#[serde(skip)]
 	pub updates: Vec<BlockUpdate>,
@@ -62,6 +67,7 @@ impl Level {
 			weather: WeatherType::Sunny,
 			level_rules: Default::default(),
 			awaiting_update: Default::default(),
+			possible_random_updates: Default::default(),
 			updates: Default::default(),
 			save_now: false,
 			player_data: Default::default(),
@@ -106,11 +112,11 @@ impl Level {
 				z: z as i16,
 				block_type: update.block,
 			});
-			for (nx, ny, nz) in neighbors(self, x, y, z) {
+			for (nx, ny, nz) in neighbors_full(self, x, y, z) {
 				let info = BLOCK_INFO
 					.get(&self.get_block(nx, ny, nz))
 					.expect("missing block");
-				if info.block_type.needs_update_when_neighbor_changed() {
+				if info.needs_update_when_neighbor_changed {
 					self.awaiting_update.insert(self.index(nx, ny, nz));
 				}
 			}
@@ -223,7 +229,14 @@ impl From<u8> for WeatherType {
 #[derive(Debug, Clone, Serialize, Deserialize, bevy_reflect::Reflect)]
 pub struct LevelRules {
 	/// whether fluids should spread in the level
+	#[serde(default = "level_rules::fluid_spread")]
 	pub fluid_spread: bool,
+	/// the number of blocks which should receive random tick updates
+	#[serde(default = "level_rules::random_tick_updates")]
+	pub random_tick_updates: u64,
+	/// the chance that grass will spread to an adjacent dirt block when randomly updated
+	#[serde(default = "level_rules::grass_spread_chance")]
+	pub grass_spread_chance: u64,
 }
 
 impl LevelRules {
@@ -251,6 +264,7 @@ impl LevelRules {
 	pub fn set_rule(&mut self, name: &str, value: &str) -> Result<(), String> {
 		let bool_type_id = TypeId::of::<bool>();
 		let f64_type_id = TypeId::of::<f64>();
+		let u64_type_id = TypeId::of::<u64>();
 		let string_type_id = TypeId::of::<String>();
 
 		fn parse_and_apply<T>(value: &str, field_mut: &mut dyn PartialReflect) -> Result<(), String>
@@ -278,6 +292,8 @@ impl LevelRules {
 			parse_and_apply::<bool>(value, field_mut)?;
 		} else if id == f64_type_id {
 			parse_and_apply::<f64>(value, field_mut)?;
+		} else if id == u64_type_id {
+			parse_and_apply::<u64>(value, field_mut)?;
 		} else if id == string_type_id {
 			parse_and_apply::<String>(value, field_mut)?;
 		} else {
@@ -288,8 +304,27 @@ impl LevelRules {
 	}
 }
 
+mod level_rules {
+	pub fn fluid_spread() -> bool {
+		true
+	}
+
+	pub fn random_tick_updates() -> u64 {
+		1000
+	}
+
+	pub fn grass_spread_chance() -> u64 {
+		2048
+	}
+}
+
 impl Default for LevelRules {
 	fn default() -> Self {
-		Self { fluid_spread: true }
+		use level_rules::*;
+		Self {
+			fluid_spread: fluid_spread(),
+			random_tick_updates: random_tick_updates(),
+			grass_spread_chance: grass_spread_chance(),
+		}
 	}
 }

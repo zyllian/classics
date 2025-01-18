@@ -3,20 +3,23 @@ pub(crate) mod network;
 
 use std::{path::PathBuf, sync::Arc};
 
+use rand::{seq::SliceRandom, Rng};
 use tokio::{net::TcpListener, sync::RwLock};
 
 use crate::{
 	error::GeneralError,
 	level::{
 		block::{
-			BlockType, BLOCK_INFO, ID_LAVA_FLOWING, ID_LAVA_STATIONARY, ID_STONE, ID_WATER_FLOWING,
-			ID_WATER_STATIONARY,
+			BlockType, BLOCK_INFO, ID_DIRT, ID_GRASS, ID_LAVA_FLOWING, ID_LAVA_STATIONARY,
+			ID_STONE, ID_WATER_FLOWING, ID_WATER_STATIONARY,
 		},
 		BlockUpdate, Level,
 	},
 	packet::server::ServerPacket,
 	player::Player,
-	util::neighbors_minus_up,
+	util::{
+		get_relative_coords, neighbors_full, neighbors_minus_up, neighbors_with_vertical_diagonals,
+	},
 	CONFIG_FILE,
 };
 
@@ -209,12 +212,68 @@ fn tick(data: &mut ServerData, tick: usize) {
 
 	let mut packets = level.apply_updates();
 
+	// apply random tick updates
+	let mut rng = rand::thread_rng();
+	level.possible_random_updates.shuffle(&mut rng);
+	for _ in 0..level.level_rules.random_tick_updates {
+		if let Some(index) = level.possible_random_updates.pop() {
+			level.awaiting_update.insert(index);
+		} else {
+			break;
+		}
+	}
+
 	let awaiting_update = std::mem::take(&mut level.awaiting_update);
 	for index in awaiting_update {
 		let (x, y, z) = level.coordinates(index);
 		let block_id = level.get_block(x, y, z);
 		let block = BLOCK_INFO.get(&block_id).expect("should never fail");
 		match &block.block_type {
+			BlockType::Solid => {
+				if block_id == ID_GRASS {
+					let mut dirt_count = 0;
+					for (nx, ny, nz) in neighbors_with_vertical_diagonals(level, x, y, z) {
+						if level.get_block(nx, ny, nz) == ID_DIRT {
+							// only turn dirt into grass if there's empty space above it
+							if get_relative_coords(level, nx, ny, nz, 0, 1, 0)
+								.map(|(x, y, z)| level.get_block(x, y, z))
+								.is_none_or(|id| id == 0x00)
+							{
+								dirt_count += 1;
+								if rng.gen_range(0..level.level_rules.grass_spread_chance) == 0 {
+									dirt_count -= 1;
+									level.updates.push(BlockUpdate {
+										index: level.index(nx, ny, nz),
+										block: ID_GRASS,
+									});
+								}
+							}
+						}
+					}
+					if get_relative_coords(level, x, y, z, 0, 1, 0)
+						.map(|(x, y, z)| level.get_block(x, y, z))
+						.is_some_and(|id| id != 0x00)
+					{
+						dirt_count += 1;
+						if rng.gen_range(0..level.level_rules.grass_spread_chance) == 0 {
+							dirt_count -= 1;
+							level.updates.push(BlockUpdate {
+								index: level.index(x, y, z),
+								block: ID_DIRT,
+							});
+						}
+					}
+					if dirt_count > 0 {
+						level.possible_random_updates.push(level.index(x, y, z));
+					}
+				} else if block_id == ID_DIRT {
+					for (nx, ny, nz) in neighbors_full(level, x, y, z) {
+						if level.get_block(nx, ny, nz) == ID_GRASS {
+							level.possible_random_updates.push(level.index(nx, ny, nz));
+						}
+					}
+				}
+			}
 			BlockType::FluidFlowing {
 				stationary,
 				ticks_to_spread,
