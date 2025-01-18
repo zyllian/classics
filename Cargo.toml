@@ -4,6 +4,7 @@ name = "classics"
 version = "0.1.0"
 
 [dependencies]
+bevy_reflect = "0.15"
 bincode = "2.0.0-rc.3"
 bitmask-enum = "2"
 bytes = "1"

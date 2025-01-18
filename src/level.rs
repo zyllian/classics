@@ -1,9 +1,11 @@
 use std::{
+	any::TypeId,
 	collections::{BTreeMap, BTreeSet},
 	io::{Read, Write},
 	path::Path,
 };
 
+use bevy_reflect::{PartialReflect, Struct};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -33,6 +35,9 @@ pub struct Level {
 	pub blocks: Vec<u8>,
 	/// the level's weather
 	pub weather: WeatherType,
+	/// the level's level rules
+	#[serde(default)]
+	pub level_rules: LevelRules,
 
 	/// index of blocks which need to be updated in the next tick
 	pub awaiting_update: BTreeSet<usize>,
@@ -55,6 +60,7 @@ impl Level {
 			z_size,
 			blocks: vec![0; x_size * y_size * z_size],
 			weather: WeatherType::Sunny,
+			level_rules: Default::default(),
 			awaiting_update: Default::default(),
 			updates: Default::default(),
 			save_now: false,
@@ -200,5 +206,80 @@ impl From<u8> for WeatherType {
 			2 => Self::Snowing,
 			_ => Self::Sunny,
 		}
+	}
+}
+
+/// Struct for rules in the level.
+#[derive(Debug, Clone, Serialize, Deserialize, bevy_reflect::Reflect)]
+pub struct LevelRules {
+	/// whether fluids should spread in the level
+	pub fluid_spread: bool,
+}
+
+impl LevelRules {
+	/// Gets information about all level rules.
+	pub fn get_all_rules_info(&self) -> Option<BTreeMap<String, String>> {
+		let info = self.get_represented_struct_info()?;
+		let mut rules = BTreeMap::new();
+		for name in info.field_names() {
+			rules.insert(name.to_string(), self.get_rule(name)?);
+		}
+		Some(rules)
+	}
+
+	/// Gets information about a single level rule.
+	pub fn get_rule(&self, name: &str) -> Option<String> {
+		let info = self.get_represented_struct_info()?;
+		Some(format!(
+			"{:?} ({})",
+			self.field(name)?,
+			info.field(name)?.type_path_table().ident()?
+		))
+	}
+
+	/// Sets a rule to the given value if possible.
+	pub fn set_rule(&mut self, name: &str, value: &str) -> Result<(), String> {
+		let bool_type_id = TypeId::of::<bool>();
+		let f64_type_id = TypeId::of::<f64>();
+		let string_type_id = TypeId::of::<String>();
+
+		fn parse_and_apply<T>(value: &str, field_mut: &mut dyn PartialReflect) -> Result<(), String>
+		where
+			T: std::str::FromStr + PartialReflect,
+		{
+			let value = value
+				.parse::<T>()
+				.map_err(|_| "Failed to parse value".to_string())?;
+			field_mut.apply(value.as_partial_reflect());
+			Ok(())
+		}
+
+		let info = self
+			.get_represented_struct_info()
+			.ok_or_else(|| "Failed to get field info".to_string())?;
+		let field = info
+			.field(name)
+			.ok_or_else(|| format!("Unknown field: {name}"))?;
+		let field_mut = self
+			.field_mut(name)
+			.ok_or_else(|| format!("Unknown field: {name}"))?;
+		let id = field.type_id();
+		if id == bool_type_id {
+			parse_and_apply::<bool>(value, field_mut)?;
+		} else if id == f64_type_id {
+			parse_and_apply::<f64>(value, field_mut)?;
+		} else if id == string_type_id {
+			parse_and_apply::<String>(value, field_mut)?;
+		} else {
+			return Err(format!("Field has unknown type: {}", field.type_path()));
+		};
+
+		Ok(())
+	}
+}
+
+impl Default for LevelRules {
+	fn default() -> Self {
+		Self { fluid_spread: true }
 	}
 }

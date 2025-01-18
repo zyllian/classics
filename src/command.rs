@@ -26,6 +26,7 @@ const CMD_SETLEVELSPAWN: &str = "setlevelspawn";
 const CMD_WEATHER: &str = "weather";
 const CMD_SAVE: &str = "save";
 const CMD_TELEPORT: &str = "tp";
+const CMD_LEVELRULE: &str = "levelrule";
 
 const USERNAME_SELF: &str = "@s";
 
@@ -44,6 +45,7 @@ pub const COMMANDS_LIST: &[&str] = &[
 	CMD_WEATHER,
 	CMD_SAVE,
 	CMD_TELEPORT,
+	CMD_LEVELRULE,
 ];
 
 /// enum for possible commands
@@ -91,6 +93,11 @@ pub enum Command<'m> {
 	Teleport {
 		username: &'m str,
 		mode: TeleportMode<'m>,
+	},
+	/// gets or sets a level rule for the current level
+	LevelRule {
+		rule: &'m str,
+		value: Option<&'m str>,
 	},
 }
 
@@ -167,6 +174,12 @@ impl<'m> Command<'m> {
 
 				Self::Teleport { username, mode }
 			}
+			CMD_LEVELRULE => {
+				let rule = Self::next_string(&mut arguments)?;
+				let value = Self::next_string(&mut arguments).ok();
+
+				Self::LevelRule { rule, value }
+			}
 			_ => return Err(format!("Unknown command: {command_name}")),
 		})
 	}
@@ -187,6 +200,7 @@ impl<'m> Command<'m> {
 			Self::Weather { .. } => CMD_WEATHER,
 			Self::Save => CMD_SAVE,
 			Self::Teleport { .. } => CMD_TELEPORT,
+			Self::LevelRule { .. } => CMD_LEVELRULE,
 		}
 	}
 
@@ -256,6 +270,11 @@ impl<'m> Command<'m> {
 			CMD_TELEPORT => vec![
 				c("(<username> or <x> <y> <z>"),
 				"&fTeleports to the given username or coordinates.".to_string(),
+			],
+			CMD_LEVELRULE => vec![
+				c("<rule> [value]"),
+				"&fGets or sets the given level rule. The special rule \"all\" will get all rules."
+					.to_string(),
 			],
 			_ => vec!["&eUnknown command!".to_string()],
 		}
@@ -645,7 +664,37 @@ impl<'m> Command<'m> {
 						player.packets_to_send.push(packet);
 					}
 				} else {
-					messages.push(format!("&fUnknown username: {username}!"));
+					messages.push(format!("Unknown username: {username}!"));
+				}
+			}
+
+			Command::LevelRule { rule, value } => {
+				if rule == "all" {
+					// get all rules
+					if let Some(rules) = data.level.level_rules.get_all_rules_info() {
+						for (name, rule) in rules {
+							messages.push(format!("&f{name}: {rule}"));
+						}
+					} else {
+						messages.push("Unable to fetch level rules!".to_string());
+					}
+				} else if let Some(value) = value {
+					// set a rule
+					match data.level.level_rules.set_rule(rule, value) {
+						Ok(()) => {
+							messages.push(format!("&fUpdated rule {rule}"));
+						}
+						Err(err) => {
+							messages.push(err.to_string());
+						}
+					}
+				} else {
+					// get a rule
+					if let Some(info) = data.level.level_rules.get_rule(rule) {
+						messages.push(format!("&f{info}"));
+					} else {
+						messages.push(format!("Unknown rule: {rule}"));
+					}
 				}
 			}
 		}

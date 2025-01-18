@@ -219,6 +219,9 @@ fn tick(data: &mut ServerData, tick: usize) {
 				stationary,
 				ticks_to_spread,
 			} => {
+				if !level.level_rules.fluid_spread {
+					continue;
+				}
 				if tick % ticks_to_spread == 0 {
 					let update = BlockUpdate {
 						index,
@@ -266,6 +269,9 @@ fn tick(data: &mut ServerData, tick: usize) {
 				}
 			}
 			BlockType::FluidStationary { moving } => {
+				if !level.level_rules.fluid_spread {
+					continue;
+				}
 				let mut needs_update = false;
 				for (nx, ny, nz) in neighbors_minus_up(level, x, y, z) {
 					if matches!(
