@@ -113,19 +113,25 @@ impl<'m> Command<'m> {
 
 	/// parses a command, returning the parsed command or an error to be displayed to the player who sent the command
 	pub fn parse(input: &'m str) -> Result<Command<'m>, String> {
+		fn missing(name: &str) -> impl Fn() -> String + '_ {
+			move || format!("&cMissing argument: {name}")
+		}
+
 		let (command_name, mut arguments) = input.split_once(' ').unwrap_or((input, ""));
 		Ok(match command_name {
 			CMD_ME => Self::Me { action: arguments },
 			CMD_SAY => Self::Say { message: arguments },
 			CMD_SETPERM => Self::SetPermissions {
-				player_username: Self::next_string(&mut arguments)?,
+				player_username: Self::next_string(&mut arguments)?
+					.ok_or_else(missing("username"))?,
 				permissions: arguments
 					.trim()
 					.try_into()
 					.map_err(|_| format!("&cUnknown permissions type: {arguments}"))?,
 			},
 			CMD_KICK => {
-				let username = Self::next_string(&mut arguments)?;
+				let username =
+					Self::next_string(&mut arguments)?.ok_or_else(missing("username"))?;
 				let message = arguments.trim();
 				let message = (!message.is_empty()).then_some(message);
 				Self::Kick { username, message }
@@ -135,7 +141,8 @@ impl<'m> Command<'m> {
 				command: (!arguments.is_empty()).then_some(arguments),
 			},
 			CMD_BAN => {
-				let player_username = Self::next_string(&mut arguments)?;
+				let player_username =
+					Self::next_string(&mut arguments)?.ok_or_else(missing("username"))?;
 				let message = arguments.trim();
 				let message = (!message.is_empty()).then_some(message);
 				Self::Ban {
@@ -144,7 +151,8 @@ impl<'m> Command<'m> {
 				}
 			}
 			CMD_ALLOWENTRY => {
-				let player_username = Self::next_string(&mut arguments)?;
+				let player_username =
+					Self::next_string(&mut arguments)?.ok_or_else(missing("username"))?;
 				let password = arguments.trim();
 				let password = (!password.is_empty()).then_some(password);
 				Self::AllowEntry {
@@ -163,12 +171,13 @@ impl<'m> Command<'m> {
 			},
 			CMD_SAVE => Self::Save,
 			CMD_TELEPORT => {
-				let username = Self::next_string(&mut arguments)?;
-				let mode = if let Ok(x) = Self::next_f32(&mut arguments) {
+				let username =
+					Self::next_string(&mut arguments)?.ok_or_else(missing("username"))?;
+				let mode = if let Ok(Some(x)) = Self::next_f32(&mut arguments) {
 					TeleportMode::Coordinates {
 						x,
-						y: Self::next_f32(&mut arguments)?,
-						z: Self::next_f32(&mut arguments)?,
+						y: Self::next_f32(&mut arguments)?.ok_or_else(missing("y"))?,
+						z: Self::next_f32(&mut arguments)?.ok_or_else(missing("z"))?,
 					}
 				} else {
 					TeleportMode::Player(arguments)
@@ -177,8 +186,8 @@ impl<'m> Command<'m> {
 				Self::Teleport { username, mode }
 			}
 			CMD_LEVELRULE => {
-				let rule = Self::next_string(&mut arguments)?;
-				let value = Self::next_string(&mut arguments).ok();
+				let rule = Self::next_string(&mut arguments)?.ok_or_else(missing("rule"))?;
+				let value = Self::next_string(&mut arguments)?;
 
 				Self::LevelRule { rule, value }
 			}
@@ -283,9 +292,9 @@ impl<'m> Command<'m> {
 	}
 
 	/// gets the next string argument from the command
-	fn next_string(args: &mut &'m str) -> Result<&'m str, String> {
+	fn next_string(args: &mut &'m str) -> Result<Option<&'m str>, String> {
 		if args.is_empty() {
-			return Err("Missing argument".to_string());
+			return Ok(None);
 		}
 
 		let (start_index, end_index, extra) = if args.starts_with('"') {
@@ -312,29 +321,34 @@ impl<'m> Command<'m> {
 		let result = &args[start_index..end_index];
 		*args = args[end_index + extra..].trim();
 
-		Ok(result)
+		Ok(Some(result))
 	}
 
 	/// gets the next f32 argument from the command
-	fn next_f32(args: &mut &'m str) -> Result<f32, String> {
+	fn next_f32(args: &mut &'m str) -> Result<Option<f32>, String> {
+		if args.is_empty() {
+			return Ok(None);
+		}
 		let (s, r) = args.split_once(' ').unwrap_or((args, ""));
 		let n = s.parse().map_err(|_| "Expected number!".to_string())?;
 		*args = r.trim();
-		Ok(n)
+		Ok(Some(n))
 	}
 
 	/// gets the next bool from the command
 	fn next_bool(args: &mut &'m str) -> Result<Option<bool>, String> {
 		if args.is_empty() {
-			return Ok(None);
-		}
-		let s = Self::next_string(args)?.to_lowercase();
-		if s == "true" {
-			Ok(Some(true))
-		} else if s == "false" {
-			Ok(Some(false))
+			Ok(None)
+		} else if let Some(s) = Self::next_string(args)?.map(|s| s.to_lowercase()) {
+			if s == "true" {
+				Ok(Some(true))
+			} else if s == "false" {
+				Ok(Some(false))
+			} else {
+				Err(format!("Expected bool, got {s}"))
+			}
 		} else {
-			Err(format!("Expected bool, got {s}"))
+			Ok(None)
 		}
 	}
 
