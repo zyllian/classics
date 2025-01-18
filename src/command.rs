@@ -84,7 +84,7 @@ pub enum Command<'m> {
 	/// sets the current player's password
 	SetPass { password: &'m str },
 	/// sets the level spawn to the player's location
-	SetLevelSpawn,
+	SetLevelSpawn { overwrite_others: bool },
 	/// changes the levels weather
 	Weather { weather_type: &'m str },
 	/// saves the current level
@@ -155,7 +155,9 @@ impl<'m> Command<'m> {
 			CMD_SETPASS => Self::SetPass {
 				password: arguments.trim(),
 			},
-			CMD_SETLEVELSPAWN => Self::SetLevelSpawn,
+			CMD_SETLEVELSPAWN => Self::SetLevelSpawn {
+				overwrite_others: Self::next_bool(&mut arguments)?.unwrap_or_default(),
+			},
 			CMD_WEATHER => Self::Weather {
 				weather_type: arguments,
 			},
@@ -196,7 +198,7 @@ impl<'m> Command<'m> {
 			Self::Ban { .. } => CMD_BAN,
 			Self::AllowEntry { .. } => CMD_ALLOWENTRY,
 			Self::SetPass { .. } => CMD_SETPASS,
-			Self::SetLevelSpawn => CMD_SETLEVELSPAWN,
+			Self::SetLevelSpawn { .. } => CMD_SETLEVELSPAWN,
 			Self::Weather { .. } => CMD_WEATHER,
 			Self::Save => CMD_SAVE,
 			Self::Teleport { .. } => CMD_TELEPORT,
@@ -259,7 +261,7 @@ impl<'m> Command<'m> {
 			],
 			CMD_SETPASS => vec![c("<new password>"), "&fUpdates your password.".to_string()],
 			CMD_SETLEVELSPAWN => vec![
-				c(""),
+				c("[overwrite_others]"),
 				"&fSets the level's spawn to your location.".to_string(),
 			],
 			CMD_WEATHER => vec![
@@ -319,6 +321,21 @@ impl<'m> Command<'m> {
 		let n = s.parse().map_err(|_| "Expected number!".to_string())?;
 		*args = r.trim();
 		Ok(n)
+	}
+
+	/// gets the next bool from the command
+	fn next_bool(args: &mut &'m str) -> Result<Option<bool>, String> {
+		if args.is_empty() {
+			return Ok(None);
+		}
+		let s = Self::next_string(args)?.to_lowercase();
+		if s == "true" {
+			Ok(Some(true))
+		} else if s == "false" {
+			Ok(Some(false))
+		} else {
+			Err(format!("Expected bool, got {s}"))
+		}
 	}
 
 	/// processes the command >:3
@@ -546,14 +563,31 @@ impl<'m> Command<'m> {
 				}
 			}
 
-			Command::SetLevelSpawn => {
+			Command::SetLevelSpawn { overwrite_others } => {
+				let x = player.x;
+				let y = player.y;
+				let z = player.z;
+				let yaw = player.yaw;
+				let pitch = player.pitch;
 				data.config.spawn = Some(ConfigCoordinatesWithOrientation {
-					x: player.x.to_f32(),
-					y: player.y.to_f32(),
-					z: player.z.to_f32(),
-					yaw: player.yaw,
-					pitch: player.pitch,
+					x: x.to_f32(),
+					y: y.to_f32(),
+					z: z.to_f32(),
+					yaw,
+					pitch,
 				});
+				if overwrite_others {
+					let packet = ServerPacket::SetSpawnPoint {
+						spawn_x: x,
+						spawn_y: y,
+						spawn_z: z,
+						spawn_yaw: yaw,
+						spawn_pitch: pitch,
+					};
+					for player in &mut data.players {
+						player.packets_to_send.push(packet.clone());
+					}
+				}
 				data.config_needs_saving = true;
 				messages.push("Level spawn updated!".to_string());
 			}

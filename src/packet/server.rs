@@ -111,6 +111,14 @@ pub enum ServerPacket {
 	EnvWeatherType { weather_type: WeatherType },
 	/// packet to set a block's position in the client's inventory
 	SetInventoryOrder { order: u8, block: u8 },
+	/// sets a player's spawn point without moving them
+	SetSpawnPoint {
+		spawn_x: f16,
+		spawn_y: f16,
+		spawn_z: f16,
+		spawn_yaw: u8,
+		spawn_pitch: u8,
+	},
 	ExtEntityTeleport {
 		entity_id: i8,
 		teleport_behavior: TeleportBehavior,
@@ -148,6 +156,7 @@ impl ServerPacket {
 			Self::HoldThis { .. } => 0x14,
 			Self::EnvWeatherType { .. } => 0x1f,
 			Self::SetInventoryOrder { .. } => 0x2c,
+			Self::SetSpawnPoint { .. } => 0x2e,
 			Self::ExtEntityTeleport { .. } => 0x36,
 		}
 	}
@@ -272,6 +281,18 @@ impl ServerPacket {
 			} => writer.write_u8(*block).write_bool(*prevent_change),
 			Self::EnvWeatherType { weather_type } => writer.write_u8(weather_type.into()),
 			Self::SetInventoryOrder { order, block } => writer.write_u8(*order).write_u8(*block),
+			Self::SetSpawnPoint {
+				spawn_x,
+				spawn_y,
+				spawn_z,
+				spawn_yaw,
+				spawn_pitch,
+			} => writer
+				.write_f16(*spawn_x)
+				.write_f16(*spawn_y)
+				.write_f16(*spawn_z)
+				.write_u8(*spawn_yaw)
+				.write_u8(*spawn_pitch),
 			Self::ExtEntityTeleport {
 				entity_id,
 				teleport_behavior,
