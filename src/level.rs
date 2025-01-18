@@ -161,6 +161,16 @@ impl Level {
 				info.blocks.len()
 			);
 		}
+
+		// queue updates for blocks which didn't update properly before (i.e. for flowing water if fluid_spreads was set to false)
+		for (i, id) in info.blocks.iter().enumerate() {
+			if let Some(block) = BLOCK_INFO.get(id) {
+				if block.block_type.needs_update_on_place() {
+					info.awaiting_update.insert(i);
+				}
+			}
+		}
+
 		Ok(info)
 	}
 }
