@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use optional_struct::optional_struct;
+use optional_struct::{optional_struct, Applicable};
 use serde::{Deserialize, Serialize};
 
 use crate::generation::LevelGeneration;
