@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use optional_struct::optional_struct;
 use serde::{Deserialize, Serialize};
 
-use crate::{level::generation::LevelGeneration, player::PlayerType};
+use crate::generation::LevelGeneration;
+use internal::player::PlayerType;
 
 /// configuration for the server
 #[optional_struct]
@@ -51,7 +52,7 @@ impl Default for ServerConfig {
 				z: 256,
 			},
 			spawn: None,
-			generation: LevelGeneration::Flat(crate::level::generation::FlatPreset::StoneAndGrass),
+			generation: LevelGeneration::Flat(crate::generation::FlatPreset::StoneAndGrass),
 			auto_save_minutes: 1,
 		}
 	}

@@ -1,20 +1,15 @@
 use std::path::PathBuf;
 
-use error::GeneralError;
+use internal::error::GeneralError;
 use server::{
 	config::{OptionalServerConfig, ServerConfig},
 	Server,
 };
 
 mod command;
-mod error;
-mod level;
-mod packet;
-mod player;
+mod generation;
 mod server;
-mod util;
 
-const SERVER_NAME: &str = "classics";
 const CONFIG_FILE: &str = "./server-config.json";
 
 #[tokio::main]

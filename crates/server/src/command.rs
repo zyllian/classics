@@ -1,16 +1,16 @@
 use half::f16;
 
-use crate::{
+use crate::server::{
+	config::{ConfigCoordinatesWithOrientation, ServerProtectionMode},
+	network::set_player_inventory,
+	ServerData,
+};
+use internal::{
 	packet::{
 		server::{ServerPacket, TeleportBehavior},
 		ExtBitmask, STRING_LENGTH,
 	},
 	player::PlayerType,
-	server::{
-		config::{ConfigCoordinatesWithOrientation, ServerProtectionMode},
-		network::set_player_inventory,
-		ServerData,
-	},
 };
 
 const CMD_ME: &str = "me";

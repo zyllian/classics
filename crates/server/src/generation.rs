@@ -2,7 +2,7 @@ use internment::Intern;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use super::{block::BLOCK_STRING_ID_MAP, Level};
+use internal::level::{block::BLOCK_STRING_ID_MAP, Level};
 
 /// enum for different kinds of level generation
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

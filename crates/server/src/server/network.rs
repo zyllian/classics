@@ -11,8 +11,8 @@ use tokio::{
 	sync::RwLock,
 };
 
-use crate::{
-	command::Command,
+use crate::{command::Command, server::config::ServerProtectionMode};
+use internal::{
 	error::GeneralError,
 	level::{
 		block::{BLOCK_INFO, ID_AIR},
@@ -23,7 +23,6 @@ use crate::{
 		EXTENSION_MAGIC_NUMBER, STRING_LENGTH,
 	},
 	player::{Player, PlayerType},
-	server::config::ServerProtectionMode,
 };
 
 use super::ServerData;

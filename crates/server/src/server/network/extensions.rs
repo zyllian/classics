@@ -1,6 +1,6 @@
 use tokio::net::TcpStream;
 
-use crate::{
+use internal::{
 	error::GeneralError,
 	level::block::CUSTOM_BLOCKS_SUPPORT_LEVEL,
 	packet::{

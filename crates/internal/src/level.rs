@@ -16,7 +16,6 @@ use crate::{
 use self::block::BLOCK_INFO;
 
 pub mod block;
-pub mod generation;
 
 const LEVEL_INFO_PATH: &str = "info.json";
 const LEVEL_DATA_PATH: &str = "level.dat";

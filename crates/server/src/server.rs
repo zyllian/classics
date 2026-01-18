@@ -6,7 +6,8 @@ use std::{path::PathBuf, sync::Arc};
 use rand::{seq::SliceRandom, Rng};
 use tokio::{net::TcpListener, sync::RwLock};
 
-use crate::{
+use crate::CONFIG_FILE;
+use internal::{
 	error::GeneralError,
 	level::{
 		block::{
@@ -20,7 +21,6 @@ use crate::{
 	util::{
 		get_relative_coords, neighbors_full, neighbors_minus_up, neighbors_with_vertical_diagonals,
 	},
-	CONFIG_FILE,
 };
 
 use self::config::ServerConfig;

@@ -1,9 +1,8 @@
 use half::f16;
 
 use crate::{
-	level::{block::CUSTOM_BLOCKS_SUPPORT_LEVEL, WeatherType},
+	level::{WeatherType, block::CUSTOM_BLOCKS_SUPPORT_LEVEL},
 	player::PlayerType,
-	SERVER_NAME,
 };
 
 use super::ExtBitmask;
@@ -269,7 +268,7 @@ impl ServerPacket {
 			Self::UpdateUserType { user_type } => writer.write_u8(user_type.into()),
 
 			Self::ExtInfo => writer
-				.write_string(SERVER_NAME)
+				.write_string(crate::SERVER_NAME)
 				.write_i16(ExtBitmask::all_bits().all_contained_info().len() as i16),
 			Self::ExtEntry { ext_name, version } => {
 				writer.write_string(ext_name).write_i32(*version)
