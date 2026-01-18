@@ -48,7 +48,7 @@ impl LevelGeneration {
 				for x in 0..level.x_size {
 					for y in 0..height {
 						for z in 0..level.z_size {
-							level.set_block(x, y, z, rng.gen_range(0..49));
+							level.set_block(x, y, z, rng.random_range(0..49));
 						}
 					}
 				}

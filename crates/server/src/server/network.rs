@@ -3,7 +3,7 @@ mod extensions;
 use std::{io::Write, net::SocketAddr, sync::Arc};
 
 use bytes::BytesMut;
-use flate2::{write::GzEncoder, Compression};
+use flate2::{Compression, write::GzEncoder};
 use half::f16;
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
@@ -15,12 +15,12 @@ use crate::{command::Command, server::config::ServerProtectionMode};
 use internal::{
 	error::GeneralError,
 	level::{
-		block::{BLOCK_INFO, ID_AIR},
 		BlockUpdate, Level,
+		block::{BLOCK_INFO, ID_AIR},
 	},
 	packet::{
-		client::ClientPacket, server::ServerPacket, ExtBitmask, PacketWriter, ARRAY_LENGTH,
-		EXTENSION_MAGIC_NUMBER, STRING_LENGTH,
+		ARRAY_LENGTH, EXTENSION_MAGIC_NUMBER, ExtBitmask, PacketWriter, STRING_LENGTH,
+		client::ClientPacket, server::ServerPacket,
 	},
 	player::{Player, PlayerType},
 };
@@ -149,10 +149,10 @@ async fn handle_stream_inner(
 	}
 
 	loop {
-		if let Some(player) = data.read().await.players.iter().find(|p| p.id == *own_id) {
-			if let Some(msg) = &player.should_be_kicked {
-				return Err(GeneralError::Custom(msg.clone()));
-			}
+		if let Some(player) = data.read().await.players.iter().find(|p| p.id == *own_id)
+			&& let Some(msg) = &player.should_be_kicked
+		{
+			return Err(GeneralError::Custom(msg.clone()));
 		}
 
 		if let Some(packet) = next_packet(stream).await? {
@@ -493,13 +493,13 @@ async fn handle_stream_inner(
 		let mut data = data.write().await;
 		if let Some(player) = data.players.iter_mut().find(|p| p.id == *own_id) {
 			for mut packet in player.packets_to_send.drain(..) {
-				if let Some(id) = packet.get_player_id() {
-					if id == *own_id {
-						if !packet.should_echo() {
-							continue;
-						}
-						packet.set_player_id(-1);
+				if let Some(id) = packet.get_player_id()
+					&& id == *own_id
+				{
+					if !packet.should_echo() {
+						continue;
 					}
+					packet.set_player_id(-1);
 				}
 				reply_queue.push(packet);
 			}

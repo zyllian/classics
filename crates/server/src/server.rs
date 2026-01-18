@@ -84,7 +84,7 @@ impl Server {
 			Level::load(level_path).await?
 		} else {
 			println!("generating level");
-			let mut rng = rand::thread_rng();
+			let mut rng = rand::rng();
 			let mut level = Level::new(
 				config.level_size.x,
 				config.level_size.y,
@@ -213,7 +213,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 	let mut packets = level.apply_updates();
 
 	// apply random tick updates
-	let mut rng = rand::thread_rng();
+	let mut rng = rand::rng();
 	level.possible_random_updates.shuffle(&mut rng);
 	for _ in 0..level.rules.random_tick_updates {
 		if let Some(index) = level.possible_random_updates.pop() {
@@ -240,7 +240,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 								.is_none_or(|id| id == 0x00)
 							{
 								dirt_count += 1;
-								if rng.gen_range(0..level.rules.grass_spread_chance) == 0 {
+								if rng.random_range(0..level.rules.grass_spread_chance) == 0 {
 									dirt_count -= 1;
 									level.updates.push(BlockUpdate {
 										index: level.index(nx, ny, nz),
@@ -255,7 +255,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 						.is_some_and(|id| id != 0x00)
 					{
 						dirt_count += 1;
-						if rng.gen_range(0..level.rules.grass_spread_chance) == 0 {
+						if rng.random_range(0..level.rules.grass_spread_chance) == 0 {
 							dirt_count -= 1;
 							level.updates.push(BlockUpdate {
 								index: level.index(x, y, z),
@@ -281,7 +281,7 @@ fn tick(data: &mut ServerData, tick: usize) {
 				if !level.rules.fluid_spread {
 					continue;
 				}
-				if tick % ticks_to_spread == 0 {
+				if tick.is_multiple_of(*ticks_to_spread) {
 					let update = BlockUpdate {
 						index,
 						block: *stationary,

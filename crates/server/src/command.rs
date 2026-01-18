@@ -1,14 +1,14 @@
 use half::f16;
 
 use crate::server::{
+	ServerData,
 	config::{ConfigCoordinatesWithOrientation, ServerProtectionMode},
 	network::set_player_inventory,
-	ServerData,
 };
 use internal::{
 	packet::{
-		server::{ServerPacket, TeleportBehavior},
 		ExtBitmask, STRING_LENGTH,
+		server::{ServerPacket, TeleportBehavior},
 	},
 	player::PlayerType,
 };
@@ -407,12 +407,11 @@ impl<'m> Command<'m> {
 
 				let perm_string: &'static str = permissions.into();
 
-				if let Some(current) = data.config.player_perms.get(player_username) {
-					if *current >= player_perms {
-						messages
-							.push("&cThis player outranks or is the same rank as you".to_string());
-						return messages;
-					}
+				if let Some(current) = data.config.player_perms.get(player_username)
+					&& *current >= player_perms
+				{
+					messages.push("&cThis player outranks or is the same rank as you".to_string());
+					return messages;
 				}
 
 				data.config_needs_saving = true;

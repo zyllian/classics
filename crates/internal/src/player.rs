@@ -6,7 +6,7 @@ use std::{
 use half::f16;
 use serde::{Deserialize, Serialize};
 
-use crate::packet::{server::ServerPacket, ExtBitmask};
+use crate::packet::{ExtBitmask, server::ServerPacket};
 
 /// struct for players
 #[derive(Debug)]
@@ -76,19 +76,15 @@ pub struct SavablePlayerData {
 	strum::IntoStaticStr,
 )]
 #[strum(ascii_case_insensitive)]
+#[derive(Default)]
 pub enum PlayerType {
 	/// a normal player
+	#[default]
 	Normal,
 	/// moderator of the server
 	Moderator,
 	/// a player who's an operator
 	Operator,
-}
-
-impl Default for PlayerType {
-	fn default() -> Self {
-		Self::Normal
-	}
 }
 
 impl From<&PlayerType> for u8 {

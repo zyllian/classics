@@ -169,10 +169,10 @@ impl Level {
 
 		// queue updates for blocks which didn't update properly before (i.e. for flowing water if fluid_spreads was set to false)
 		for (i, id) in info.blocks.iter().enumerate() {
-			if let Some(block) = BLOCK_INFO.get(id) {
-				if block.block_type.needs_update_on_place() {
-					info.awaiting_update.insert(i);
-				}
+			if let Some(block) = BLOCK_INFO.get(id)
+				&& block.block_type.needs_update_on_place()
+			{
+				info.awaiting_update.insert(i);
 			}
 		}
 
@@ -192,16 +192,12 @@ pub struct BlockUpdate {
 /// weather types for a level
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, strum::EnumString, strum::IntoStaticStr)]
 #[strum(ascii_case_insensitive)]
+#[derive(Default)]
 pub enum WeatherType {
+	#[default]
 	Sunny,
 	Raining,
 	Snowing,
-}
-
-impl Default for WeatherType {
-	fn default() -> Self {
-		Self::Sunny
-	}
 }
 
 impl From<&WeatherType> for u8 {
